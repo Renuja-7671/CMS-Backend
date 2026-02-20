@@ -1,0 +1,48 @@
+spring:
+  application:
+    name: cms
+  
+  # Database Configuration
+  datasource:
+    url: jdbc:mysql://localhost:3306/card_management_system?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: root
+    password: renuja7671.
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  
+  # Spring Data JDBC Configuration
+  data:
+    jdbc:
+      repositories:
+        enabled: true
+  
+  # SQL Logging
+  sql:
+    init:
+      mode: never  # Don't auto-run schema.sql (already created)
+
+# Logging Configuration
+logging:
+  level:
+    com.epic.cms: DEBUG
+    org.springframework.jdbc.core: DEBUG
+    org.springframework.jdbc.core.namedparam: DEBUG
+
+# Card Security Configuration
+card:
+  encryption:
+    # AES-256 encryption key for middle-digit encryption (Base64 encoded)
+    # IMPORTANT: Change this key in production and store it securely (e.g., environment variable, vault)
+    # Never commit production keys to version control
+    key: LYDnVJ0bu9RLrDNfi/q0xnjJodUnHwm3aP4FkBTPKlo=
+    
+    # Fixed AES-256 encryption key for database storage (Base64 encoded)
+    # This key is used to consistently encrypt/decrypt card numbers in the database
+    # IMPORTANT: Never change this key after data is encrypted, or data will be unrecoverable
+    # Store securely in production (environment variable, vault)
+    database-key: 8K3mP9vR2wX5yB7nC4jF6hL1qT0sV8uZ3aD5gH9kM2o=
+
+server:
+  port: 8090
+  error:
+    include-message: always
+    include-stacktrace: never

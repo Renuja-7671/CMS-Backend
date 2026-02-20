@@ -1,0 +1,238 @@
+package com.epic.cms.controller;
+
+import java.util.List;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.epic.cms.dto.ApiResponse;
+import com.epic.cms.dto.CardRequestDTO;
+import com.epic.cms.dto.CardRequestDetailDTO;
+import com.epic.cms.dto.CreateCardRequestDTO;
+import com.epic.cms.service.CardRequestService;
+
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+/**
+ * REST controller for card request operations.
+ * Handles activation and deactivation requests for cards.
+ */
+@RestController
+@RequestMapping("/api/card-requests")
+@CrossOrigin(origins = "*")
+@RequiredArgsConstructor
+@Validated
+@Slf4j
+public class CardRequestController {
+	
+	private final CardRequestService cardRequestService;
+	
+	/**
+	 * Create a new card request (activation or deactivation).
+	 * 
+	 * POST /api/card-requests
+	 */
+	@PostMapping
+	public ResponseEntity<ApiResponse<CardRequestDTO>> createCardRequest(
+			@Valid @RequestBody CreateCardRequestDTO request) {
+		
+		log.info("Received request to create card request");
+		
+		CardRequestDTO createdRequest = cardRequestService.createCardRequest(request);
+		
+		ApiResponse<CardRequestDTO> response = ApiResponse.<CardRequestDTO>builder()
+			.success(true)
+			.message("Card request created successfully")
+			.data(createdRequest)
+			.build();
+		
+		return ResponseEntity.status(HttpStatus.CREATED).body(response);
+	}
+	
+	/**
+	 * Get all card requests.
+	 * 
+	 * GET /api/card-requests
+	 */
+	@GetMapping
+	public ResponseEntity<ApiResponse<List<CardRequestDTO>>> getAllCardRequests() {
+		log.info("Received request to get all card requests");
+		
+		List<CardRequestDTO> requests = cardRequestService.getAllCardRequests();
+		
+		ApiResponse<List<CardRequestDTO>> response = ApiResponse.<List<CardRequestDTO>>builder()
+			.success(true)
+			.message("Card requests retrieved successfully")
+			.data(requests)
+			.build();
+		
+		return ResponseEntity.ok(response);
+	}
+	
+	/**
+	 * Get all pending card requests.
+	 * 
+	 * GET /api/card-requests/pending
+	 */
+	@GetMapping("/pending")
+	public ResponseEntity<ApiResponse<List<CardRequestDTO>>> getPendingCardRequests() {
+		log.info("Received request to get pending card requests");
+		
+		List<CardRequestDTO> requests = cardRequestService.getPendingCardRequests();
+		
+		ApiResponse<List<CardRequestDTO>> response = ApiResponse.<List<CardRequestDTO>>builder()
+			.success(true)
+			.message("Pending card requests retrieved successfully")
+			.data(requests)
+			.build();
+		
+		return ResponseEntity.ok(response);
+	}
+	
+	/**
+	 * Get a card request by ID.
+	 * 
+	 * GET /api/card-requests/{requestId}
+	 */
+	@GetMapping("/{requestId}")
+	public ResponseEntity<ApiResponse<CardRequestDTO>> getCardRequestById(
+			@PathVariable Long requestId) {
+		
+		log.info("Received request to get card request with ID: {}", requestId);
+		
+		CardRequestDTO request = cardRequestService.getCardRequestById(requestId);
+		
+		ApiResponse<CardRequestDTO> response = ApiResponse.<CardRequestDTO>builder()
+			.success(true)
+			.message("Card request retrieved successfully")
+			.data(request)
+			.build();
+		
+		return ResponseEntity.ok(response);
+	}
+	
+	/**
+	 * Approve a card request.
+	 * Updates the request status to APPR and changes the card status accordingly.
+	 * 
+	 * PUT /api/card-requests/{requestId}/approve
+	 */
+	@PutMapping("/{requestId}/approve")
+	public ResponseEntity<ApiResponse<CardRequestDTO>> approveCardRequest(
+			@PathVariable Long requestId) {
+		
+		log.info("Received request to approve card request with ID: {}", requestId);
+		
+		CardRequestDTO approvedRequest = cardRequestService.approveCardRequest(requestId);
+		
+		ApiResponse<CardRequestDTO> response = ApiResponse.<CardRequestDTO>builder()
+			.success(true)
+			.message("Card request approved successfully")
+			.data(approvedRequest)
+			.build();
+		
+		return ResponseEntity.ok(response);
+	}
+	
+	/**
+	 * Reject a card request.
+	 * Updates the request status to RJCT without changing the card status.
+	 * 
+	 * PUT /api/card-requests/{requestId}/reject
+	 */
+	@PutMapping("/{requestId}/reject")
+	public ResponseEntity<ApiResponse<CardRequestDTO>> rejectCardRequest(
+			@PathVariable Long requestId) {
+		
+		log.info("Received request to reject card request with ID: {}", requestId);
+		
+		CardRequestDTO rejectedRequest = cardRequestService.rejectCardRequest(requestId);
+		
+		ApiResponse<CardRequestDTO> response = ApiResponse.<CardRequestDTO>builder()
+			.success(true)
+			.message("Card request rejected successfully")
+			.data(rejectedRequest)
+			.build();
+		
+		return ResponseEntity.ok(response);
+	}
+	
+	/**
+	 * Get pending requests for inactive/deactivated cards with full card details.
+	 * This is used for the request confirmation page.
+	 * 
+	 * GET /api/card-requests/pending/details
+	 */
+	@GetMapping("/pending/details")
+	public ResponseEntity<ApiResponse<List<CardRequestDetailDTO>>> getPendingRequestsWithDetails() {
+		log.info("Received request to get pending requests with card details");
+		
+		List<CardRequestDetailDTO> requests = cardRequestService.getPendingRequestsWithCardDetails();
+		
+		ApiResponse<List<CardRequestDetailDTO>> response = ApiResponse.<List<CardRequestDetailDTO>>builder()
+			.success(true)
+			.message("Pending requests with card details retrieved successfully")
+			.data(requests)
+			.build();
+		
+		return ResponseEntity.ok(response);
+	}
+	
+	/**
+	 * Approve a card request with full card details response.
+	 * Updates the request status to APPR and changes the card status accordingly.
+	 * For ACTI requests: Card status IACT/DACT -> CACT
+	 * 
+	 * PUT /api/card-requests/{requestId}/approve/details
+	 */
+	@PutMapping("/{requestId}/approve/details")
+	public ResponseEntity<ApiResponse<CardRequestDetailDTO>> approveRequestWithDetails(
+			@PathVariable Long requestId) {
+		
+		log.info("Received request to approve card request with ID: {} (with details)", requestId);
+		
+		CardRequestDetailDTO approvedRequest = cardRequestService.approveRequestWithDetails(requestId);
+		
+		ApiResponse<CardRequestDetailDTO> response = ApiResponse.<CardRequestDetailDTO>builder()
+			.success(true)
+			.message("Card request approved successfully and card activated")
+			.data(approvedRequest)
+			.build();
+		
+		return ResponseEntity.ok(response);
+	}
+	
+	/**
+	 * Reject a card request with card status update.
+	 * Updates the request status to RJCT and sets card status to DACT.
+	 * 
+	 * PUT /api/card-requests/{requestId}/reject/details
+	 */
+	@PutMapping("/{requestId}/reject/details")
+	public ResponseEntity<ApiResponse<CardRequestDetailDTO>> rejectRequestWithDetails(
+			@PathVariable Long requestId) {
+		
+		log.info("Received request to reject card request with ID: {} (with details)", requestId);
+		
+		CardRequestDetailDTO rejectedRequest = cardRequestService.rejectRequestWithDetails(requestId);
+		
+		ApiResponse<CardRequestDetailDTO> response = ApiResponse.<CardRequestDetailDTO>builder()
+			.success(true)
+			.message("Card request rejected and card deactivated")
+			.data(rejectedRequest)
+			.build();
+		
+		return ResponseEntity.ok(response);
+	}
+}

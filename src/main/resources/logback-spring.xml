@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+	<!-- Property definitions -->
+	<property name="LOG_PATH" value="./logs" />
+	<property name="LOG_ARCHIVE_PATH" value="${LOG_PATH}/archive" />
+	
+	<!-- Console pattern for development -->
+	<property name="CONSOLE_LOG_PATTERN"
+		value="%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) %cyan([%thread]) %magenta(%logger{36}) : %msg%n" />
+	
+	<!-- File pattern for production (includes correlation ID for request tracking) -->
+	<property name="FILE_LOG_PATTERN"
+		value="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [%X{correlationId}] %logger{36} - %msg%n" />
+	
+	<!-- Audit log pattern (more detailed for financial transactions) -->
+	<property name="AUDIT_LOG_PATTERN"
+		value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%X{correlationId}] [%X{user:-SYSTEM}] [%X{operation}] - %msg%n" />
+
+	<!-- ============================================ -->
+	<!-- CONSOLE APPENDER (Development)               -->
+	<!-- ============================================ -->
+	<appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+		<encoder>
+			<pattern>${CONSOLE_LOG_PATTERN}</pattern>
+			<charset>UTF-8</charset>
+		</encoder>
+	</appender>
+
+	<!-- ============================================ -->
+	<!-- APPLICATION LOG (General application logs)   -->
+	<!-- ============================================ -->
+	<appender name="APPLICATION_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+		<file>${LOG_PATH}/application.log</file>
+		<encoder>
+			<pattern>${FILE_LOG_PATTERN}</pattern>
+			<charset>UTF-8</charset>
+		</encoder>
+		<rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+			<!-- Daily rollover -->
+			<fileNamePattern>${LOG_ARCHIVE_PATH}/application/application-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+			<!-- Keep 90 days of history -->
+			<maxHistory>90</maxHistory>
+			<!-- Max file size before rollover -->
+			<timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+				<maxFileSize>100MB</maxFileSize>
+			</timeBasedFileNamingAndTriggeringPolicy>
+			<!-- Max total size of all archived files -->
+			<totalSizeCap>10GB</totalSizeCap>
+		</rollingPolicy>
+	</appender>
+
+	<!-- ============================================ -->
+	<!-- AUDIT LOG (Financial transactions & changes) -->
+	<!-- ============================================ -->
+	<appender name="AUDIT_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+		<file>${LOG_PATH}/audit.log</file>
+		<encoder>
+			<pattern>${AUDIT_LOG_PATTERN}</pattern>
+			<charset>UTF-8</charset>
+		</encoder>
+		<rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+			<!-- Daily rollover -->
+			<fileNamePattern>${LOG_ARCHIVE_PATH}/audit/audit-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+			<!-- Keep 7 years for financial compliance (e.g., PCI-DSS, SOX) -->
+			<maxHistory>2555</maxHistory>
+			<timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+				<maxFileSize>100MB</maxFileSize>
+			</timeBasedFileNamingAndTriggeringPolicy>
+			<!-- Max total size -->
+			<totalSizeCap>50GB</totalSizeCap>
+		</rollingPolicy>
+	</appender>
+
+	<!-- ============================================ -->
+	<!-- SECURITY LOG (Auth, encryption, access)      -->
+	<!-- ============================================ -->
+	<appender name="SECURITY_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+		<file>${LOG_PATH}/security.log</file>
+		<encoder>
+			<pattern>${FILE_LOG_PATTERN}</pattern>
+			<charset>UTF-8</charset>
+		</encoder>
+		<rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+			<fileNamePattern>${LOG_ARCHIVE_PATH}/security/security-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+			<!-- Keep 1 year for security audits -->
+			<maxHistory>365</maxHistory>
+			<timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+				<maxFileSize>100MB</maxFileSize>
+			</timeBasedFileNamingAndTriggeringPolicy>
+			<totalSizeCap>20GB</totalSizeCap>
+		</rollingPolicy>
+	</appender>
+
+	<!-- ============================================ -->
+	<!-- ERROR LOG (Exceptions and errors only)       -->
+	<!-- ============================================ -->
+	<appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+		<file>${LOG_PATH}/error.log</file>
+		<filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+			<level>ERROR</level>
+		</filter>
+		<encoder>
+			<pattern>${FILE_LOG_PATTERN}</pattern>
+			<charset>UTF-8</charset>
+		</encoder>
+		<rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+			<fileNamePattern>${LOG_ARCHIVE_PATH}/error/error-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+			<maxHistory>365</maxHistory>
+			<timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+				<maxFileSize>50MB</maxFileSize>
+			</timeBasedFileNamingAndTriggeringPolicy>
+			<totalSizeCap>5GB</totalSizeCap>
+		</rollingPolicy>
+	</appender>
+
+	<!-- ============================================ -->
+	<!-- ACCESS LOG (API requests and responses)      -->
+	<!-- ============================================ -->
+	<appender name="ACCESS_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+		<file>${LOG_PATH}/access.log</file>
+		<encoder>
+			<pattern>${FILE_LOG_PATTERN}</pattern>
+			<charset>UTF-8</charset>
+		</encoder>
+		<rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+			<fileNamePattern>${LOG_ARCHIVE_PATH}/access/access-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+			<maxHistory>90</maxHistory>
+			<timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+				<maxFileSize>200MB</maxFileSize>
+			</timeBasedFileNamingAndTriggeringPolicy>
+			<totalSizeCap>20GB</totalSizeCap>
+		</rollingPolicy>
+	</appender>
+
+	<!-- ============================================ -->
+	<!-- DATABASE LOG (SQL queries and DB operations) -->
+	<!-- ============================================ -->
+	<appender name="DATABASE_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+		<file>${LOG_PATH}/database.log</file>
+		<encoder>
+			<pattern>${FILE_LOG_PATTERN}</pattern>
+			<charset>UTF-8</charset>
+		</encoder>
+		<rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+			<fileNamePattern>${LOG_ARCHIVE_PATH}/database/database-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+			<maxHistory>30</maxHistory>
+			<timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+				<maxFileSize>100MB</maxFileSize>
+			</timeBasedFileNamingAndTriggeringPolicy>
+			<totalSizeCap>10GB</totalSizeCap>
+		</rollingPolicy>
+	</appender>
+
+	<!-- ============================================ -->
+	<!-- LOGGER CONFIGURATIONS                        -->
+	<!-- ============================================ -->
+
+	<!-- Audit Logger (uses separate logger name) -->
+	<logger name="AUDIT" level="INFO" additivity="false">
+		<appender-ref ref="AUDIT_FILE" />
+		<appender-ref ref="CONSOLE" />
+	</logger>
+
+	<!-- Security Logger -->
+	<logger name="SECURITY" level="INFO" additivity="false">
+		<appender-ref ref="SECURITY_FILE" />
+		<appender-ref ref="CONSOLE" />
+	</logger>
+
+	<!-- Access Logger -->
+	<logger name="ACCESS" level="INFO" additivity="false">
+		<appender-ref ref="ACCESS_FILE" />
+	</logger>
+
+	<!-- Database Logger (Spring Data JDBC) -->
+	<logger name="org.springframework.jdbc" level="DEBUG" additivity="false">
+		<appender-ref ref="DATABASE_FILE" />
+	</logger>
+
+	<!-- Card Encryption/Decryption (Security log) -->
+	<logger name="com.epic.cms.util.CardEncryptionUtil" level="DEBUG" additivity="false">
+		<appender-ref ref="SECURITY_FILE" />
+		<appender-ref ref="CONSOLE" />
+	</logger>
+
+	<!-- Payload Encryption (Security log) -->
+	<logger name="com.epic.cms.util.PayloadEncryptionUtil" level="INFO" additivity="false">
+		<appender-ref ref="SECURITY_FILE" />
+		<appender-ref ref="CONSOLE" />
+	</logger>
+
+	<!-- Application Services (both app log and audit) -->
+	<logger name="com.epic.cms.service" level="INFO" additivity="false">
+		<appender-ref ref="APPLICATION_FILE" />
+		<appender-ref ref="CONSOLE" />
+	</logger>
+
+	<!-- Controllers (access log and app log) -->
+	<logger name="com.epic.cms.controller" level="INFO" additivity="false">
+		<appender-ref ref="APPLICATION_FILE" />
+		<appender-ref ref="ACCESS_FILE" />
+		<appender-ref ref="CONSOLE" />
+	</logger>
+
+	<!-- Exception Handling -->
+	<logger name="com.epic.cms.exception" level="INFO" additivity="false">
+		<appender-ref ref="APPLICATION_FILE" />
+		<appender-ref ref="ERROR_FILE" />
+		<appender-ref ref="CONSOLE" />
+	</logger>
+
+	<!-- Spring Framework (reduced logging) -->
+	<logger name="org.springframework" level="INFO" />
+	<logger name="org.springframework.web" level="INFO" />
+	<logger name="org.springframework.security" level="INFO" />
+
+	<!-- Hibernate Validator -->
+	<logger name="org.hibernate.validator" level="INFO" />
+
+	<!-- HikariCP Connection Pool -->
+	<logger name="com.zaxxer.hikari" level="INFO" />
+
+	<!-- Root logger -->
+	<root level="INFO">
+		<appender-ref ref="CONSOLE" />
+		<appender-ref ref="APPLICATION_FILE" />
+		<appender-ref ref="ERROR_FILE" />
+	</root>
+
+</configuration>

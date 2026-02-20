@@ -1,0 +1,148 @@
+package com.epic.cms.util;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+/**
+ * Unit tests for CardEncryptionUtil.
+ */
+class CardEncryptionUtilTest {
+
+	private CardEncryptionUtil cardEncryptionUtil;
+	private static final String TEST_ENCRYPTION_KEY = "LYDnVJ0bu9RLrDNfi/q0xnjJodUnHwm3aP4FkBTPKlo=";
+
+	@BeforeEach
+	void setUp() {
+		cardEncryptionUtil = new CardEncryptionUtil(TEST_ENCRYPTION_KEY);
+	}
+
+	@Test
+	void testEncryptAndDecrypt_shouldReturnOriginalCardNumber() {
+		// Arrange
+		String originalCardNumber = "4532015112830366";
+
+		// Act
+		String encrypted = cardEncryptionUtil.encrypt(originalCardNumber);
+		String decrypted = cardEncryptionUtil.decrypt(encrypted);
+
+		// Assert
+		assertNotNull(encrypted);
+		assertNotEquals(originalCardNumber, encrypted, "Encrypted value should not equal original");
+		assertEquals(originalCardNumber, decrypted, "Decrypted value should equal original");
+	}
+
+	@Test
+	void testEncrypt_shouldProduceDifferentCiphertexts() {
+		// Arrange
+		String cardNumber = "4532015112830366";
+
+		// Act - Encrypt same card number twice
+		String encrypted1 = cardEncryptionUtil.encrypt(cardNumber);
+		String encrypted2 = cardEncryptionUtil.encrypt(cardNumber);
+
+		// Assert - Different IVs should produce different ciphertexts
+		assertNotEquals(encrypted1, encrypted2, 
+				"Same plaintext should produce different ciphertexts due to random IV");
+	}
+
+	@Test
+	void testMaskCardNumber_shouldShowLastFourDigits() {
+		// Arrange
+		String cardNumber = "4532015112830366";
+
+		// Act
+		String masked = cardEncryptionUtil.maskCardNumber(cardNumber);
+
+		// Assert
+		assertEquals("************0366", masked);
+		assertTrue(masked.endsWith("0366"), "Should show last 4 digits");
+		assertTrue(masked.startsWith("****"), "Should mask first digits");
+	}
+
+	@Test
+	void testMaskCardNumber_withShortCardNumber_shouldReturnMasked() {
+		// Arrange
+		String shortCardNumber = "1234";
+
+		// Act
+		String masked = cardEncryptionUtil.maskCardNumber(shortCardNumber);
+
+		// Assert
+		assertEquals("1234", masked);
+	}
+
+	@Test
+	void testMaskCardNumber_withNull_shouldReturnStars() {
+		// Act
+		String masked = cardEncryptionUtil.maskCardNumber(null);
+
+		// Assert
+		assertEquals("****", masked);
+	}
+
+	@Test
+	void testHashCardNumber_shouldBeConsistent() {
+		// Arrange
+		String cardNumber = "4532015112830366";
+
+		// Act
+		String hash1 = cardEncryptionUtil.hashCardNumber(cardNumber);
+		String hash2 = cardEncryptionUtil.hashCardNumber(cardNumber);
+
+		// Assert
+		assertNotNull(hash1);
+		assertEquals(hash1, hash2, "Same input should produce same hash");
+	}
+
+	@Test
+	void testHashCardNumber_shouldBeDifferentForDifferentInputs() {
+		// Arrange
+		String cardNumber1 = "4532015112830366";
+		String cardNumber2 = "5425233430109903";
+
+		// Act
+		String hash1 = cardEncryptionUtil.hashCardNumber(cardNumber1);
+		String hash2 = cardEncryptionUtil.hashCardNumber(cardNumber2);
+
+		// Assert
+		assertNotEquals(hash1, hash2, "Different inputs should produce different hashes");
+	}
+
+	@Test
+	void testEncryptDecrypt_withDifferentCardNumbers() {
+		// Arrange
+		String[] cardNumbers = {
+				"4532015112830366",
+				"5425233430109903",
+				"6011111111111117",
+				"378282246310005"
+		};
+
+		// Act & Assert
+		for (String cardNumber : cardNumbers) {
+			String encrypted = cardEncryptionUtil.encrypt(cardNumber);
+			String decrypted = cardEncryptionUtil.decrypt(encrypted);
+			assertEquals(cardNumber, decrypted, 
+					"Encryption/decryption should work for card number: " + cardNumber);
+		}
+	}
+
+	@Test
+	void testEncryptedValue_shouldBeBase64Encoded() {
+		// Arrange
+		String cardNumber = "4532015112830366";
+
+		// Act
+		String encrypted = cardEncryptionUtil.encrypt(cardNumber);
+
+		// Assert
+		// Base64 encoded strings only contain A-Z, a-z, 0-9, +, /, and =
+		assertTrue(encrypted.matches("^[A-Za-z0-9+/=]+$"), 
+				"Encrypted value should be Base64 encoded");
+	}
+}
