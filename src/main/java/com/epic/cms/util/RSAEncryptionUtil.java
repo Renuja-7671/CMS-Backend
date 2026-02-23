@@ -14,6 +14,8 @@ import javax.crypto.spec.PSource;
 
 import org.springframework.stereotype.Component;
 
+import com.epic.cms.exception.EncryptionException;
+
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -54,7 +56,7 @@ public class RSAEncryptionUtil {
 			
 		} catch (Exception e) {
 			log.error("Failed to generate RSA key pair", e);
-			throw new RuntimeException("Failed to generate RSA key pair", e);
+			throw new EncryptionException("RSA key generation", "Failed to generate RSA key pair", e);
 		}
 	}
 
@@ -99,7 +101,7 @@ public class RSAEncryptionUtil {
 			
 		} catch (Exception e) {
 			log.error("RSA decryption failed", e);
-			throw new RuntimeException("Failed to decrypt data with RSA private key", e);
+			throw new EncryptionException("RSA decryption", "Failed to decrypt data with RSA private key", e);
 		}
 	}
 
@@ -134,7 +136,7 @@ public class RSAEncryptionUtil {
 			
 		} catch (Exception e) {
 			log.error("RSA encryption failed", e);
-			throw new RuntimeException("Failed to encrypt data with RSA public key", e);
+			throw new EncryptionException("RSA encryption", "Failed to encrypt data with RSA public key", e);
 		}
 	}
 }

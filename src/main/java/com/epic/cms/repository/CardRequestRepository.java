@@ -106,4 +106,70 @@ public interface CardRequestRepository extends CrudRepository<CardRequest, Long>
 		ORDER BY cr.RequestedAt DESC
 		""")
 	Iterable<CardRequest> findPendingRequestsForInactiveCards();
+	
+	/**
+	 * Get pending requests with pagination.
+	 */
+	@Query("""
+		SELECT cr.*
+		FROM CardRequest cr
+		JOIN Card c ON cr.CardNumber = c.CardNumber
+		WHERE cr.RequestStatusCode = 'PEND'
+		ORDER BY cr.RequestedAt DESC
+		LIMIT :limit OFFSET :offset
+		""")
+	Iterable<CardRequest> findPendingRequestsForInactiveCardsWithPagination(
+			@Param("limit") int limit,
+			@Param("offset") int offset);
+	
+	/**
+	 * Find all card requests with pagination and optional filtering.
+	 */
+	@Query("""
+		SELECT cr.*
+		FROM CardRequest cr
+		WHERE (:status IS NULL OR cr.RequestStatusCode = :status)
+		  AND (:searchQuery IS NULL OR cr.CardNumber LIKE CONCAT('%', :searchQuery, '%'))
+		ORDER BY cr.RequestedAt DESC
+		LIMIT :limit OFFSET :offset
+		""")
+	Iterable<CardRequest> findAllWithPagination(
+			@Param("status") String status,
+			@Param("searchQuery") String searchQuery,
+			@Param("limit") int limit,
+			@Param("offset") int offset);
+	
+	/**
+	 * Count total number of card requests with optional filtering.
+	 */
+	@Query("""
+		SELECT COUNT(*) 
+		FROM CardRequest cr
+		WHERE (:status IS NULL OR cr.RequestStatusCode = :status)
+		  AND (:searchQuery IS NULL OR cr.CardNumber LIKE CONCAT('%', :searchQuery, '%'))
+		""")
+	long countAllRequests(
+			@Param("status") String status,
+			@Param("searchQuery") String searchQuery);
+	
+	/**
+	 * Find pending card requests with pagination (for backwards compatibility).
+	 */
+	@Query("""
+		SELECT cr.*
+		FROM CardRequest cr
+		WHERE cr.RequestStatusCode = 'PEND'
+		ORDER BY cr.RequestedAt DESC
+		LIMIT :limit OFFSET :offset
+		""")
+	Iterable<CardRequest> findPendingRequestsWithPagination(
+			@Param("limit") int limit,
+			@Param("offset") int offset);
+	
+	/**
+	 * Count pending card requests.
+	 */
+	@Query("SELECT COUNT(*) FROM CardRequest WHERE RequestStatusCode = 'PEND'")
+	long countPendingRequests();
 }
+

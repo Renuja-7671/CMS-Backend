@@ -3,7 +3,6 @@ package com.epic.cms.controller;
 import java.security.PrivateKey;
 import java.util.List;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -20,8 +19,11 @@ import com.epic.cms.dto.ApiResponse;
 import com.epic.cms.dto.CardDTO;
 import com.epic.cms.dto.CreateCardRequest;
 import com.epic.cms.dto.EncryptedPayloadRequest;
+import com.epic.cms.dto.PageRequest;
+import com.epic.cms.dto.PageResponse;
 import com.epic.cms.dto.SecureEncryptedPayloadRequest;
 import com.epic.cms.dto.UpdateCardRequest;
+import com.epic.cms.exception.InvalidOperationException;
 import com.epic.cms.service.CardService;
 import com.epic.cms.service.KeyManagementService;
 import com.epic.cms.util.PayloadEncryptionUtil;
@@ -51,6 +53,31 @@ public class CardController {
 	public ResponseEntity<ApiResponse<List<CardDTO>>> getAllCards() {
 		log.info("GET /api/cards - Fetch all cards");
 		List<CardDTO> cards = cardService.getAllCards();
+		return ResponseEntity.ok(
+				ApiResponse.success("Cards retrieved successfully", cards));
+	}
+	
+	/**
+	 * Get all cards with pagination and optional filtering.
+	 * 
+	 * @param page Page number (default 0)
+	 * @param size Page size (default 10)
+	 * @param status Optional card status filter (e.g., IACT, CACT, DACT, or ALL for no filter)
+	 * @param search Optional card number search query
+	 * @return Paginated list of cards
+	 */
+	@GetMapping("/paginated")
+	public ResponseEntity<ApiResponse<PageResponse<CardDTO>>> getAllCardsPaginated(
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "10") int size,
+			@RequestParam(required = false) String status,
+			@RequestParam(required = false) String search) {
+		log.info("GET /api/cards/paginated - Fetch cards with pagination: page={}, size={}, status={}, search={}", 
+				page, size, status, search);
+		
+		PageRequest pageRequest = PageRequest.of(page, size);
+		PageResponse<CardDTO> cards = cardService.getAllCardsWithPagination(pageRequest, status, search);
+		
 		return ResponseEntity.ok(
 				ApiResponse.success("Cards retrieved successfully", cards));
 	}
@@ -110,8 +137,8 @@ public class CardController {
 	public ResponseEntity<ApiResponse<CardDTO>> createCard(@Valid @RequestBody CreateCardRequest request) {
 		log.info("POST /api/cards - Create new card: {}", request.getCardNumber());
 		CardDTO createdCard = cardService.createCard(request);
-		return ResponseEntity.status(HttpStatus.CREATED)
-				.body(ApiResponse.success("Card created successfully", createdCard));
+		return ResponseEntity.ok(
+				ApiResponse.success("Card created successfully", createdCard));
 	}
 
 	/**
@@ -128,27 +155,20 @@ public class CardController {
 			@Valid @RequestBody EncryptedPayloadRequest encryptedRequest) {
 		log.info("POST /api/cards/encrypted - Create new card with encrypted payload (legacy mode)");
 		
-		try {
-			// Decrypt the payload
-			CreateCardRequest request = payloadEncryptionUtil.decryptPayload(
-				encryptedRequest.getEncryptedData(),
-				encryptedRequest.getEncryptionKey(),
-				CreateCardRequest.class
-			);
-			
-			log.info("Decrypted payload successfully for card: {}", request.getCardNumber());
-			
-			// Process the decrypted request
-			CardDTO createdCard = cardService.createCard(request);
-			
-			return ResponseEntity.status(HttpStatus.CREATED)
-					.body(ApiResponse.success("Card created successfully", createdCard));
-					
-		} catch (Exception e) {
-			log.error("Failed to process encrypted card creation request", e);
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-					.body(ApiResponse.error("Failed to decrypt or process request: " + e.getMessage()));
-		}
+		// Decrypt the payload
+		CreateCardRequest request = payloadEncryptionUtil.decryptPayload(
+			encryptedRequest.getEncryptedData(),
+			encryptedRequest.getEncryptionKey(),
+			CreateCardRequest.class
+		);
+		
+		log.info("Decrypted payload successfully for card: {}", request.getCardNumber());
+		
+		// Process the decrypted request
+		CardDTO createdCard = cardService.createCard(request);
+		
+		return ResponseEntity.ok(
+				ApiResponse.success("Card created successfully", createdCard));
 	}
 
 	/**
@@ -174,42 +194,34 @@ public class CardController {
 		log.info("POST /api/cards/secure - Create new card with secure encrypted payload (session: {})", 
 				secureRequest.getSessionId());
 		
-		try {
-			// Step 1: Retrieve private key for the session
-			PrivateKey privateKey = keyManagementService.getPrivateKey(secureRequest.getSessionId());
-			
-			if (privateKey == null) {
-				log.warn("Invalid or expired session ID: {}", secureRequest.getSessionId());
-				return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-						.body(ApiResponse.error("Invalid or expired session ID. Please request a new public key."));
-			}
-			
-			// Step 2: Decrypt the payload using RSA + AES
-			CreateCardRequest request = payloadEncryptionUtil.decryptPayloadWithRSA(
-				secureRequest.getEncryptedData(),
-				secureRequest.getEncryptedKey(),
-				privateKey,
-				CreateCardRequest.class
-			);
-			
-			log.info("Decrypted secure payload successfully for card: ****{}", 
-					request.getCardNumber().substring(request.getCardNumber().length() - 4));
-			
-			// Step 3: Invalidate the key pair after successful decryption (one-time use)
-			keyManagementService.invalidateKeyPair(secureRequest.getSessionId());
-			log.debug("Invalidated key pair for session: {}", secureRequest.getSessionId());
-			
-			// Step 4: Process the decrypted request
-			CardDTO createdCard = cardService.createCard(request);
-			
-			return ResponseEntity.status(HttpStatus.CREATED)
-					.body(ApiResponse.success("Card created successfully", createdCard));
-					
-		} catch (Exception e) {
-			log.error("Failed to process secure encrypted card creation request", e);
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-					.body(ApiResponse.error("Failed to decrypt or process request: " + e.getMessage()));
+		// Step 1: Retrieve private key for the session
+		PrivateKey privateKey = keyManagementService.getPrivateKey(secureRequest.getSessionId());
+		
+		if (privateKey == null) {
+			log.warn("Invalid or expired session ID: {}", secureRequest.getSessionId());
+			throw new InvalidOperationException("Invalid or expired session ID. Please request a new public key.");
 		}
+		
+		// Step 2: Decrypt the payload using RSA + AES
+		CreateCardRequest request = payloadEncryptionUtil.decryptPayloadWithRSA(
+			secureRequest.getEncryptedData(),
+			secureRequest.getEncryptedKey(),
+			privateKey,
+			CreateCardRequest.class
+		);
+		
+		log.info("Decrypted secure payload successfully for card: ****{}", 
+				request.getCardNumber().substring(request.getCardNumber().length() - 4));
+		
+		// Step 3: Invalidate the key pair after successful decryption (one-time use)
+		keyManagementService.invalidateKeyPair(secureRequest.getSessionId());
+		log.debug("Invalidated key pair for session: {}", secureRequest.getSessionId());
+		
+		// Step 4: Process the decrypted request
+		CardDTO createdCard = cardService.createCard(request);
+		
+		return ResponseEntity.ok(
+				ApiResponse.success("Card created successfully", createdCard));
 	}
 
 	/**

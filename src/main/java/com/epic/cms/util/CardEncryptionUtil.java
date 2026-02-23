@@ -15,6 +15,8 @@ import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import com.epic.cms.exception.EncryptionException;
+
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -42,12 +44,12 @@ public class CardEncryptionUtil {
 	 * 
 	 * @param plainCardNumber Full plain card number (e.g., "4532015112830366")
 	 * @return Base64-encoded encrypted card number
-	 * @throws RuntimeException if encryption fails
+	 * @throws EncryptionException if encryption fails
 	 */
 	public String encryptCardNumberForDatabase(String plainCardNumber) {
 		try {
 			if (plainCardNumber == null || plainCardNumber.isEmpty()) {
-				throw new IllegalArgumentException("Card number cannot be null or empty");
+				throw new EncryptionException("Card number encryption", "Card number cannot be null or empty");
 			}
 
 			// Decode the fixed database encryption key
@@ -77,9 +79,11 @@ public class CardEncryptionUtil {
 			log.debug("Full card number encrypted for database storage");
 			return result;
 
+		} catch (EncryptionException e) {
+			throw e; // Re-throw our custom exception
 		} catch (Exception e) {
 			log.error("Failed to encrypt card number for database", e);
-			throw new RuntimeException("Failed to encrypt card number for database", e);
+			throw new EncryptionException("Database card number encryption", "Encryption operation failed", e);
 		}
 	}
 
@@ -88,12 +92,12 @@ public class CardEncryptionUtil {
 	 * 
 	 * @param encryptedCardNumber Base64-encoded encrypted card number
 	 * @return Full plain card number
-	 * @throws RuntimeException if decryption fails
+	 * @throws EncryptionException if decryption fails
 	 */
 	public String decryptCardNumberFromDatabase(String encryptedCardNumber) {
 		try {
 			if (encryptedCardNumber == null || encryptedCardNumber.isEmpty()) {
-				throw new IllegalArgumentException("Encrypted card number cannot be null or empty");
+				throw new EncryptionException("Card number decryption", "Encrypted card number cannot be null or empty");
 			}
 
 			// Decode the fixed database encryption key
@@ -120,9 +124,11 @@ public class CardEncryptionUtil {
 			log.debug("Full card number decrypted from database storage");
 			return plainCardNumber;
 
+		} catch (EncryptionException e) {
+			throw e; // Re-throw our custom exception
 		} catch (Exception e) {
 			log.error("Failed to decrypt card number from database", e);
-			throw new RuntimeException("Failed to decrypt card number from database", e);
+			throw new EncryptionException("Database card number decryption", "Decryption operation failed", e);
 		}
 	}
 
@@ -133,12 +139,12 @@ public class CardEncryptionUtil {
 	 * 
 	 * @param cardNumber Full plain card number (e.g., "4532015112830366")
 	 * @return Map containing "displayCardNumber" and "encryptionKey"
-	 * @throws RuntimeException if encryption fails
+	 * @throws EncryptionException if encryption fails
 	 */
 	public Map<String, String> encryptMiddleDigits(String cardNumber) {
 		try {
 			if (cardNumber == null || cardNumber.length() < 10) {
-				throw new IllegalArgumentException("Card number must be at least 10 digits");
+				throw new EncryptionException("Middle digits encryption", "Card number must be at least 10 digits");
 			}
 
 			// Extract parts: first 6, middle, last 4
@@ -180,9 +186,11 @@ public class CardEncryptionUtil {
 			result.put("encryptionKey", encryptionKey);
 			return result;
 
+		} catch (EncryptionException e) {
+			throw e; // Re-throw our custom exception
 		} catch (Exception e) {
 			log.error("Failed to encrypt card number middle digits", e);
-			throw new RuntimeException("Failed to encrypt card number", e);
+			throw new EncryptionException("Middle digits encryption", "Encryption operation failed", e);
 		}
 	}
 
@@ -192,12 +200,12 @@ public class CardEncryptionUtil {
 	 * @param displayCardNumber Display card number with encrypted middle (first6 + encrypted + last4)
 	 * @param encryptionKey Base64-encoded encryption key
 	 * @return Full plain card number
-	 * @throws RuntimeException if decryption fails
+	 * @throws EncryptionException if decryption fails
 	 */
 	public String decryptMiddleDigits(String displayCardNumber, String encryptionKey) {
 		try {
 			if (displayCardNumber == null || displayCardNumber.length() < 10) {
-				throw new IllegalArgumentException("Invalid display card number");
+				throw new EncryptionException("Middle digits decryption", "Invalid display card number");
 			}
 
 			// Extract parts: first 6, encrypted middle, last 4
@@ -232,9 +240,11 @@ public class CardEncryptionUtil {
 			log.debug("Card number middle digits decrypted successfully");
 			return fullCardNumber;
 
+		} catch (EncryptionException e) {
+			throw e; // Re-throw our custom exception
 		} catch (Exception e) {
 			log.error("Failed to decrypt card number middle digits", e);
-			throw new RuntimeException("Failed to decrypt card number", e);
+			throw new EncryptionException("Middle digits decryption", "Decryption operation failed", e);
 		}
 	}
 
@@ -242,6 +252,7 @@ public class CardEncryptionUtil {
 	 * Generates a new AES-256 encryption key.
 	 * 
 	 * @return New SecretKey for AES-256 encryption
+	 * @throws EncryptionException if key generation fails
 	 */
 	private SecretKey generateKey() {
 		try {
@@ -249,7 +260,7 @@ public class CardEncryptionUtil {
 			keyGenerator.init(256, new SecureRandom());
 			return keyGenerator.generateKey();
 		} catch (Exception e) {
-			throw new RuntimeException("Failed to generate encryption key", e);
+			throw new EncryptionException("Encryption key generation", "Failed to generate AES key", e);
 		}
 	}
 }

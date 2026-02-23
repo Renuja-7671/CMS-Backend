@@ -2,7 +2,6 @@ package com.epic.cms.controller;
 
 import java.util.List;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -12,12 +11,15 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.epic.cms.dto.ApiResponse;
 import com.epic.cms.dto.CardRequestDTO;
 import com.epic.cms.dto.CardRequestDetailDTO;
 import com.epic.cms.dto.CreateCardRequestDTO;
+import com.epic.cms.dto.PageRequest;
+import com.epic.cms.dto.PageResponse;
 import com.epic.cms.service.CardRequestService;
 
 import jakarta.validation.Valid;
@@ -57,7 +59,7 @@ public class CardRequestController {
 			.data(createdRequest)
 			.build();
 		
-		return ResponseEntity.status(HttpStatus.CREATED).body(response);
+		return ResponseEntity.ok(response);
 	}
 	
 	/**
@@ -81,6 +83,37 @@ public class CardRequestController {
 	}
 	
 	/**
+	 * Get all card requests with pagination and optional filtering.
+	 * 
+	 * GET /api/card-requests/paginated
+	 * 
+	 * @param page Page number (default 0)
+	 * @param size Page size (default 10)
+	 * @param status Optional request status filter (e.g., PEND, APPR, RJCT, or ALL for no filter)
+	 * @param search Optional card number search query
+	 */
+	@GetMapping("/paginated")
+	public ResponseEntity<ApiResponse<PageResponse<CardRequestDTO>>> getAllCardRequestsPaginated(
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "10") int size,
+			@RequestParam(required = false) String status,
+			@RequestParam(required = false) String search) {
+		log.info("Received request to get all card requests with pagination: page={}, size={}, status={}, search={}", 
+				page, size, status, search);
+		
+		PageRequest pageRequest = PageRequest.of(page, size);
+		PageResponse<CardRequestDTO> requests = cardRequestService.getAllCardRequestsWithPagination(pageRequest, status, search);
+		
+		ApiResponse<PageResponse<CardRequestDTO>> response = ApiResponse.<PageResponse<CardRequestDTO>>builder()
+			.success(true)
+			.message("Card requests retrieved successfully")
+			.data(requests)
+			.build();
+		
+		return ResponseEntity.ok(response);
+	}
+	
+	/**
 	 * Get all pending card requests.
 	 * 
 	 * GET /api/card-requests/pending
@@ -92,6 +125,29 @@ public class CardRequestController {
 		List<CardRequestDTO> requests = cardRequestService.getPendingCardRequests();
 		
 		ApiResponse<List<CardRequestDTO>> response = ApiResponse.<List<CardRequestDTO>>builder()
+			.success(true)
+			.message("Pending card requests retrieved successfully")
+			.data(requests)
+			.build();
+		
+		return ResponseEntity.ok(response);
+	}
+	
+	/**
+	 * Get all pending card requests with pagination.
+	 * 
+	 * GET /api/card-requests/pending/paginated
+	 */
+	@GetMapping("/pending/paginated")
+	public ResponseEntity<ApiResponse<PageResponse<CardRequestDTO>>> getPendingCardRequestsPaginated(
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "10") int size) {
+		log.info("Received request to get pending card requests with pagination: page={}, size={}", page, size);
+		
+		PageRequest pageRequest = PageRequest.of(page, size);
+		PageResponse<CardRequestDTO> requests = cardRequestService.getPendingCardRequestsWithPagination(pageRequest);
+		
+		ApiResponse<PageResponse<CardRequestDTO>> response = ApiResponse.<PageResponse<CardRequestDTO>>builder()
 			.success(true)
 			.message("Pending card requests retrieved successfully")
 			.data(requests)
@@ -181,6 +237,29 @@ public class CardRequestController {
 		List<CardRequestDetailDTO> requests = cardRequestService.getPendingRequestsWithCardDetails();
 		
 		ApiResponse<List<CardRequestDetailDTO>> response = ApiResponse.<List<CardRequestDetailDTO>>builder()
+			.success(true)
+			.message("Pending requests with card details retrieved successfully")
+			.data(requests)
+			.build();
+		
+		return ResponseEntity.ok(response);
+	}
+	
+	/**
+	 * Get pending requests with full card details with pagination.
+	 * 
+	 * GET /api/card-requests/pending/details/paginated
+	 */
+	@GetMapping("/pending/details/paginated")
+	public ResponseEntity<ApiResponse<PageResponse<CardRequestDetailDTO>>> getPendingRequestsWithDetailsPaginated(
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "10") int size) {
+		log.info("Received request to get pending requests with card details and pagination: page={}, size={}", page, size);
+		
+		PageRequest pageRequest = PageRequest.of(page, size);
+		PageResponse<CardRequestDetailDTO> requests = cardRequestService.getPendingRequestsWithCardDetailsPaginated(pageRequest);
+		
+		ApiResponse<PageResponse<CardRequestDetailDTO>> response = ApiResponse.<PageResponse<CardRequestDetailDTO>>builder()
 			.success(true)
 			.message("Pending requests with card details retrieved successfully")
 			.data(requests)

@@ -145,4 +145,43 @@ public interface CardRepository extends CrudRepository<Card, String> {
 			ORDER BY c.LastUpdateTime DESC
 			""")
 	List<Card> findByCardStatus(@Param("status") String status);
+	
+	/**
+	 * Find all cards with pagination and optional filtering.
+	 */
+	@Query("""
+			SELECT 
+				c.CardNumber,
+				c.ExpiryDate,
+				c.CardStatus,
+				c.CreditLimit,
+				c.CashLimit,
+				c.AvailableCreditLimit,
+				c.AvailableCashLimit,
+				c.LastUpdateTime
+			FROM Card c
+			WHERE (:status IS NULL OR c.CardStatus = :status)
+			  AND (:searchQuery IS NULL OR c.CardNumber LIKE CONCAT('%', :searchQuery, '%'))
+			ORDER BY c.LastUpdateTime DESC
+			LIMIT :limit OFFSET :offset
+			""")
+	List<Card> findAllCardsWithPagination(
+			@Param("status") String status,
+			@Param("searchQuery") String searchQuery,
+			@Param("limit") int limit,
+			@Param("offset") int offset);
+	
+	/**
+	 * Count total number of cards with optional filtering.
+	 */
+	@Query("""
+			SELECT COUNT(*) 
+			FROM Card c
+			WHERE (:status IS NULL OR c.CardStatus = :status)
+			  AND (:searchQuery IS NULL OR c.CardNumber LIKE CONCAT('%', :searchQuery, '%'))
+			""")
+	long countAllCards(
+			@Param("status") String status,
+			@Param("searchQuery") String searchQuery);
 }
+

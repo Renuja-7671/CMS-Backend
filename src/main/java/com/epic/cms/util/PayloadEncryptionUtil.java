@@ -10,6 +10,7 @@ import javax.crypto.spec.SecretKeySpec;
 
 import org.springframework.stereotype.Component;
 
+import com.epic.cms.exception.EncryptionException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
@@ -54,10 +55,10 @@ public class PayloadEncryptionUtil {
     public <T> T decryptPayload(String encryptedData, String encryptionKey, Class<T> targetClass) {
         try {
             if (encryptedData == null || encryptedData.isEmpty()) {
-                throw new IllegalArgumentException("Encrypted data cannot be null or empty");
+                throw new EncryptionException("Payload decryption", "Encrypted data cannot be null or empty");
             }
             if (encryptionKey == null || encryptionKey.isEmpty()) {
-                throw new IllegalArgumentException("Encryption key cannot be null or empty");
+                throw new EncryptionException("Payload decryption", "Encryption key cannot be null or empty");
             }
 
             // Decode the encryption key
@@ -71,7 +72,7 @@ public class PayloadEncryptionUtil {
 
         } catch (Exception e) {
             log.error("Failed to decrypt payload", e);
-            throw new RuntimeException("Failed to decrypt payload: " + e.getMessage(), e);
+            throw new EncryptionException("Payload decryption", "Failed to decrypt payload: " + e.getMessage(), e);
         }
     }
 
@@ -96,13 +97,13 @@ public class PayloadEncryptionUtil {
                                         PrivateKey privateKey, Class<T> targetClass) {
         try {
             if (encryptedData == null || encryptedData.isEmpty()) {
-                throw new IllegalArgumentException("Encrypted data cannot be null or empty");
+                throw new EncryptionException("Payload decryption", "Encrypted data cannot be null or empty");
             }
             if (encryptedKey == null || encryptedKey.isEmpty()) {
-                throw new IllegalArgumentException("Encrypted key cannot be null or empty");
+                throw new EncryptionException("Payload decryption", "Encrypted key cannot be null or empty");
             }
             if (privateKey == null) {
-                throw new IllegalArgumentException("Private key cannot be null");
+                throw new EncryptionException("Payload decryption", "Private key cannot be null");
             }
 
             // Step 1: Decrypt the AES key using RSA private key
@@ -117,7 +118,7 @@ public class PayloadEncryptionUtil {
 
         } catch (Exception e) {
             log.error("Failed to decrypt payload with RSA", e);
-            throw new RuntimeException("Failed to decrypt payload with RSA: " + e.getMessage(), e);
+            throw new EncryptionException("Payload decryption with RSA", "Failed to decrypt payload: " + e.getMessage(), e);
         }
     }
 
@@ -169,10 +170,10 @@ public class PayloadEncryptionUtil {
     public String encryptPayload(Object payload, String encryptionKey) {
         try {
             if (payload == null) {
-                throw new IllegalArgumentException("Payload cannot be null");
+                throw new EncryptionException("Payload encryption", "Payload cannot be null");
             }
             if (encryptionKey == null || encryptionKey.isEmpty()) {
-                throw new IllegalArgumentException("Encryption key cannot be null or empty");
+                throw new EncryptionException("Payload decryption", "Encryption key cannot be null or empty");
             }
 
             // Serialize object to JSON
@@ -207,7 +208,7 @@ public class PayloadEncryptionUtil {
 
         } catch (Exception e) {
             log.error("Failed to encrypt payload", e);
-            throw new RuntimeException("Failed to encrypt payload: " + e.getMessage(), e);
+            throw new EncryptionException("Payload encryption", "Failed to encrypt payload: " + e.getMessage(), e);
         }
     }
 }

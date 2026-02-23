@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.epic.cms.dto.CardDTO;
 import com.epic.cms.dto.CreateCardRequest;
+import com.epic.cms.dto.PageRequest;
+import com.epic.cms.dto.PageResponse;
 import com.epic.cms.dto.UpdateCardRequest;
 import com.epic.cms.exception.DuplicateResourceException;
 import com.epic.cms.exception.InvalidOperationException;
@@ -45,6 +47,41 @@ public class CardService {
 		return cards.stream()
 				.map(this::convertToDTO)
 				.collect(Collectors.toList());
+	}
+	
+	/**
+	 * Get all cards with pagination and optional filtering.
+	 * 
+	 * @param pageRequest Pagination parameters
+	 * @param status Optional card status filter (null = all statuses)
+	 * @param searchQuery Optional card number search (null = no search)
+	 */
+	@Transactional(readOnly = true)
+	public PageResponse<CardDTO> getAllCardsWithPagination(PageRequest pageRequest, String status, String searchQuery) {
+		log.info("Fetching cards with pagination - page: {}, size: {}, status: {}, search: {}", 
+				pageRequest.getPage(), pageRequest.getSize(), status, searchQuery);
+		
+		// Normalize empty strings to null for SQL query
+		String normalizedStatus = (status == null || status.trim().isEmpty() || "ALL".equalsIgnoreCase(status)) ? null : status;
+		String normalizedSearch = (searchQuery == null || searchQuery.trim().isEmpty()) ? null : searchQuery;
+		
+		// Get total count with filters
+		long totalElements = cardRepository.countAllCards(normalizedStatus, normalizedSearch);
+		
+		// Get paginated cards with filters
+		List<Card> cards = cardRepository.findAllCardsWithPagination(
+				normalizedStatus,
+				normalizedSearch,
+				pageRequest.getSize(), 
+				pageRequest.getOffset());
+		
+		// Convert to DTOs
+		List<CardDTO> cardDTOs = cards.stream()
+				.map(this::convertToDTO)
+				.collect(Collectors.toList());
+		
+		// Return paginated response
+		return PageResponse.of(cardDTOs, pageRequest.getPage(), pageRequest.getSize(), totalElements);
 	}
 
 	/**

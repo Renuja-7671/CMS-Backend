@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.epic.cms.dto.CardRequestDTO;
 import com.epic.cms.dto.CardRequestDetailDTO;
 import com.epic.cms.dto.CreateCardRequestDTO;
+import com.epic.cms.dto.PageRequest;
+import com.epic.cms.dto.PageResponse;
 import com.epic.cms.exception.InvalidOperationException;
 import com.epic.cms.exception.ResourceNotFoundException;
 import com.epic.cms.model.Card;
@@ -168,6 +170,37 @@ public class CardRequestService {
 	}
 	
 	/**
+	 * Get all card requests with pagination and optional filtering.
+	 * 
+	 * @param pageRequest Pagination parameters
+	 * @param status Optional request status filter (null = all statuses)
+	 * @param searchQuery Optional card number search (null = no search)
+	 */
+	public PageResponse<CardRequestDTO> getAllCardRequestsWithPagination(PageRequest pageRequest, String status, String searchQuery) {
+		log.info("Fetching card requests with pagination - page: {}, size: {}, status: {}, search: {}", 
+				pageRequest.getPage(), pageRequest.getSize(), status, searchQuery);
+		
+		// Normalize empty strings to null for SQL query
+		String normalizedStatus = (status == null || status.trim().isEmpty() || "ALL".equalsIgnoreCase(status)) ? null : status;
+		String normalizedSearch = (searchQuery == null || searchQuery.trim().isEmpty()) ? null : searchQuery;
+		
+		// Get total count with filters
+		long totalElements = cardRequestRepository.countAllRequests(normalizedStatus, normalizedSearch);
+		
+		// Get paginated requests with filters
+		List<CardRequestDTO> result = new ArrayList<>();
+		cardRequestRepository.findAllWithPagination(
+				normalizedStatus,
+				normalizedSearch,
+				pageRequest.getSize(), 
+				pageRequest.getOffset())
+			.forEach(cr -> result.add(toDTO(cr)));
+		
+		// Return paginated response
+		return PageResponse.of(result, pageRequest.getPage(), pageRequest.getSize(), totalElements);
+	}
+	
+	/**
 	 * Get pending card requests.
 	 */
 	public List<CardRequestDTO> getPendingCardRequests() {
@@ -178,6 +211,27 @@ public class CardRequestService {
 			}
 		});
 		return result;
+	}
+	
+	/**
+	 * Get pending card requests with pagination.
+	 */
+	public PageResponse<CardRequestDTO> getPendingCardRequestsWithPagination(PageRequest pageRequest) {
+		log.info("Fetching pending card requests with pagination - page: {}, size: {}", 
+				pageRequest.getPage(), pageRequest.getSize());
+		
+		// Get total count
+		long totalElements = cardRequestRepository.countPendingRequests();
+		
+		// Get paginated pending requests
+		List<CardRequestDTO> result = new ArrayList<>();
+		cardRequestRepository.findPendingRequestsWithPagination(
+				pageRequest.getSize(), 
+				pageRequest.getOffset())
+			.forEach(cr -> result.add(toDTO(cr)));
+		
+		// Return paginated response
+		return PageResponse.of(result, pageRequest.getPage(), pageRequest.getSize(), totalElements);
 	}
 	
 	/**
@@ -240,6 +294,27 @@ public class CardRequestService {
 		});
 		
 		return result;
+	}
+	
+	/**
+	 * Get pending requests with full card details and pagination.
+	 */
+	public PageResponse<CardRequestDetailDTO> getPendingRequestsWithCardDetailsPaginated(PageRequest pageRequest) {
+		log.info("Fetching pending requests with card details and pagination - page: {}, size: {}", 
+				pageRequest.getPage(), pageRequest.getSize());
+		
+		// Get total count of pending requests
+		long totalElements = cardRequestRepository.countPendingRequests();
+		
+		// Get paginated pending requests
+		List<CardRequestDetailDTO> result = new ArrayList<>();
+		cardRequestRepository.findPendingRequestsForInactiveCardsWithPagination(
+				pageRequest.getSize(), 
+				pageRequest.getOffset())
+			.forEach(request -> result.add(toDetailDTO(request)));
+		
+		// Return paginated response
+		return PageResponse.of(result, pageRequest.getPage(), pageRequest.getSize(), totalElements);
 	}
 	
 	/**
