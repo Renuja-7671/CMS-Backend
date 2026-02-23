@@ -17,11 +17,13 @@ import com.epic.cms.exception.InvalidOperationException;
 import com.epic.cms.exception.ResourceNotFoundException;
 import com.epic.cms.model.Card;
 import com.epic.cms.model.CardRequest;
+import com.epic.cms.model.User;
 import com.epic.cms.repository.CardRepository;
 import com.epic.cms.repository.CardRequestRepository;
 import com.epic.cms.repository.CardRequestTypeRepository;
 import com.epic.cms.repository.CardStatusRepository;
 import com.epic.cms.repository.RequestStatusRepository;
+import com.epic.cms.repository.UserRepository;
 import com.epic.cms.util.AuditLogger;
 import com.epic.cms.util.CardEncryptionUtil;
 
@@ -41,6 +43,7 @@ public class CardRequestService {
 	private final RequestStatusRepository requestStatusRepository;
 	private final CardRequestTypeRepository cardRequestTypeRepository;
 	private final CardStatusRepository cardStatusRepository;
+	private final UserRepository userRepository;
 	private final CardEncryptionUtil cardEncryptionUtil;
 	private final AuditLogger auditLogger;
 	
@@ -66,12 +69,20 @@ public class CardRequestService {
 		Card card = cardRepository.findByCardNumber(encryptedCardNumber)
 			.orElseThrow(() -> new ResourceNotFoundException("Card not found"));
 		
-		// 2. Check for pending requests
+		// 2. Validate requested user exists and is active
+		User requestedUser = userRepository.findByUserName(request.getRequestedUser())
+			.orElseThrow(() -> new ResourceNotFoundException("Requested user not found: " + request.getRequestedUser()));
+		
+		if (!"ACT".equals(requestedUser.getStatus())) {
+			throw new InvalidOperationException("Requested user is not active: " + request.getRequestedUser());
+		}
+		
+		// 3. Check for pending requests
 		if (cardRequestRepository.countPendingRequestsForCard(encryptedCardNumber) > 0) {
 			throw new InvalidOperationException("There is already a pending request for this card");
 		}
 		
-	// 3. Validate business rules
+	// 4. Validate business rules
 	String requestType = request.getRequestType();
 	String cardStatus = card.getCardStatus();
 	
@@ -102,11 +113,12 @@ public class CardRequestService {
 			cardRequestRepository.insertCardRequest(
 				encryptedCardNumber,
 				request.getRequestType(),
-				request.getReason()
+				request.getReason(),
+				request.getRequestedUser()
 			);
 			
 			// 4b. Update card status to IACT immediately (use encrypted card number)
-			cardRequestRepository.updateCardStatus(encryptedCardNumber, "IACT");
+			cardRequestRepository.updateCardStatus(encryptedCardNumber, "IACT", request.getRequestedUser());
 			
 			// 5a. Retrieve and return (use encrypted card number)
 			CardRequest createdRequest = cardRequestRepository.findLatestByCardNumber(encryptedCardNumber)
@@ -124,14 +136,15 @@ public class CardRequestService {
 			cardRequestRepository.insertCardRequest(
 				encryptedCardNumber,
 				request.getRequestType(),
-				request.getReason()
+				request.getReason(),
+				request.getRequestedUser()
 			);
 			
 			// 4d. Immediately reject the request
 			CardRequest createdRequest = cardRequestRepository.findLatestByCardNumber(encryptedCardNumber)
 				.orElseThrow(() -> new InvalidOperationException("Failed to retrieve created card request"));
 			
-			cardRequestRepository.rejectRequest(createdRequest.getRequestId());
+			cardRequestRepository.rejectRequest(createdRequest.getRequestId(), "SYSTEM");
 			
 			// 5b. Retrieve and return the rejected request
 			return getCardRequestById(createdRequest.getRequestId());
@@ -142,7 +155,8 @@ public class CardRequestService {
 	cardRequestRepository.insertCardRequest(
 		encryptedCardNumber,
 		request.getRequestType(),
-		request.getReason()
+		request.getReason(),
+		request.getRequestedUser()
 	);
 	
 	// 5. Retrieve and return (use encrypted card number)
@@ -247,7 +261,7 @@ public class CardRequestService {
 	 * Approve a card request.
 	 */
 	@Transactional
-	public CardRequestDTO approveCardRequest(Long requestId) {
+	public CardRequestDTO approveCardRequest(Long requestId, String approvedUser) {
 		CardRequest request = cardRequestRepository.findById(requestId)
 			.orElseThrow(() -> new ResourceNotFoundException("Card request not found with ID: " + requestId));
 		
@@ -255,13 +269,21 @@ public class CardRequestService {
 			throw new InvalidOperationException("Only pending requests can be approved");
 		}
 		
+		// Validate approved user exists and is active
+		User approver = userRepository.findByUserName(approvedUser)
+			.orElseThrow(() -> new ResourceNotFoundException("Approved user not found: " + approvedUser));
+		
+		if (!"ACT".equals(approver.getStatus())) {
+			throw new InvalidOperationException("Approved user is not active: " + approvedUser);
+		}
+		
 		// Update request status
-		cardRequestRepository.approveRequest(requestId);
+		cardRequestRepository.approveRequest(requestId, approvedUser);
 		
 		// Update card status
 		// Note: request.getCardNumber() contains encrypted card number from database
 		String newCardStatus = "ACTI".equals(request.getRequestTypeCode()) ? "CACT" : "DACT";
-		cardRequestRepository.updateCardStatus(request.getCardNumber(), newCardStatus);
+		cardRequestRepository.updateCardStatus(request.getCardNumber(), newCardStatus, approvedUser);
 		
 		return getCardRequestById(requestId);
 	}
@@ -270,7 +292,7 @@ public class CardRequestService {
 	 * Reject a card request.
 	 */
 	@Transactional
-	public CardRequestDTO rejectCardRequest(Long requestId) {
+	public CardRequestDTO rejectCardRequest(Long requestId, String approvedUser) {
 		CardRequest request = cardRequestRepository.findById(requestId)
 			.orElseThrow(() -> new ResourceNotFoundException("Card request not found with ID: " + requestId));
 		
@@ -278,7 +300,15 @@ public class CardRequestService {
 			throw new InvalidOperationException("Only pending requests can be rejected");
 		}
 		
-		cardRequestRepository.rejectRequest(requestId);
+		// Validate approved user exists and is active
+		User approver = userRepository.findByUserName(approvedUser)
+			.orElseThrow(() -> new ResourceNotFoundException("Approved user not found: " + approvedUser));
+		
+		if (!"ACT".equals(approver.getStatus())) {
+			throw new InvalidOperationException("Approved user is not active: " + approvedUser);
+		}
+		
+		cardRequestRepository.rejectRequest(requestId, approvedUser);
 		return getCardRequestById(requestId);
 	}
 	
@@ -323,12 +353,20 @@ public class CardRequestService {
 	 * For CDCL requests: Card status CACT -> DACT
 	 */
 	@Transactional
-	public CardRequestDetailDTO approveRequestWithDetails(Long requestId) {
+	public CardRequestDetailDTO approveRequestWithDetails(Long requestId, String approvedUser) {
 		CardRequest request = cardRequestRepository.findById(requestId)
 			.orElseThrow(() -> new ResourceNotFoundException("Card request not found with ID: " + requestId));
 		
 		if (!"PEND".equals(request.getRequestStatusCode())) {
 			throw new InvalidOperationException("Only pending requests can be approved");
+		}
+		
+		// Validate approved user exists and is active
+		User approver = userRepository.findByUserName(approvedUser)
+			.orElseThrow(() -> new ResourceNotFoundException("Approved user not found: " + approvedUser));
+		
+		if (!"ACT".equals(approver.getStatus())) {
+			throw new InvalidOperationException("Approved user is not active: " + approvedUser);
 		}
 		
 		// Get old card status before update
@@ -350,10 +388,10 @@ public class CardRequestService {
 		}
 		
 		// Update request status to APPR
-		cardRequestRepository.approveRequest(requestId);
+		cardRequestRepository.approveRequest(requestId, approvedUser);
 		
 		// Update card status
-		cardRequestRepository.updateCardStatus(request.getCardNumber(), newCardStatus);
+		cardRequestRepository.updateCardStatus(request.getCardNumber(), newCardStatus, approvedUser);
 		
 		// Audit log: Request approval and card status change
 		String plainCardNumber = cardEncryptionUtil.decryptCardNumberFromDatabase(request.getCardNumber());
@@ -363,13 +401,13 @@ public class CardRequestService {
 				maskedCardNumber,
 				request.getRequestTypeCode(),
 				newCardStatus,
-				"SYSTEM");
+				approvedUser);
 		auditLogger.logCardStatusChange(
 				maskedCardNumber,
 				oldCardStatus,
 				newCardStatus,
 				"Request approved: " + requestId,
-				"SYSTEM");
+				approvedUser);
 		
 		// Retrieve updated request and return with card details
 		CardRequest updatedRequest = cardRequestRepository.findById(requestId)
@@ -384,12 +422,20 @@ public class CardRequestService {
 	 * For CDCL requests: Card status changes to CACT (kept active), request status to RJCT
 	 */
 	@Transactional
-	public CardRequestDetailDTO rejectRequestWithDetails(Long requestId) {
+	public CardRequestDetailDTO rejectRequestWithDetails(Long requestId, String approvedUser) {
 		CardRequest request = cardRequestRepository.findById(requestId)
 			.orElseThrow(() -> new ResourceNotFoundException("Card request not found with ID: " + requestId));
 		
 		if (!"PEND".equals(request.getRequestStatusCode())) {
 			throw new InvalidOperationException("Only pending requests can be rejected");
+		}
+		
+		// Validate approved user exists and is active
+		User approver = userRepository.findByUserName(approvedUser)
+			.orElseThrow(() -> new ResourceNotFoundException("Approved user not found: " + approvedUser));
+		
+		if (!"ACT".equals(approver.getStatus())) {
+			throw new InvalidOperationException("Approved user is not active: " + approvedUser);
 		}
 		
 		// Get old card status before update
@@ -413,10 +459,10 @@ public class CardRequestService {
 		}
 		
 		// Update request status to RJCT
-		cardRequestRepository.rejectRequest(requestId);
+		cardRequestRepository.rejectRequest(requestId, approvedUser);
 		
 		// Update card status
-		cardRequestRepository.updateCardStatus(request.getCardNumber(), newCardStatus);
+		cardRequestRepository.updateCardStatus(request.getCardNumber(), newCardStatus, approvedUser);
 		
 		// Audit log: Request rejection
 		String plainCardNumber = cardEncryptionUtil.decryptCardNumberFromDatabase(request.getCardNumber());
@@ -426,14 +472,14 @@ public class CardRequestService {
 				maskedCardNumber,
 				request.getRequestTypeCode(),
 				"Request rejected by administrator",
-				"SYSTEM");
+				approvedUser);
 		if (!oldCardStatus.equals(newCardStatus)) {
 			auditLogger.logCardStatusChange(
 					maskedCardNumber,
 					oldCardStatus,
 					newCardStatus,
 					"Request rejected: " + requestId,
-					"SYSTEM");
+					approvedUser);
 		}
 		
 		// Retrieve updated request and return with card details
@@ -468,6 +514,8 @@ public class CardRequestService {
 			.reason(entity.getReason())
 			.requestedAt(entity.getRequestedAt())
 			.processedAt(entity.getProcessedAt())
+			.requestedUser(entity.getRequestedUser())
+			.approvedUser(entity.getApprovedUser())
 			.build();
 	}
 	
@@ -507,6 +555,8 @@ public class CardRequestService {
 			.reason(entity.getReason())
 			.requestedAt(entity.getRequestedAt())
 			.processedAt(entity.getProcessedAt())
+			.requestedUser(entity.getRequestedUser())
+			.approvedUser(entity.getApprovedUser())
 			// Card information
 			.displayCardNumber(encryptionResult.get("displayCardNumber"))
 			.encryptionKey(encryptionResult.get("encryptionKey"))

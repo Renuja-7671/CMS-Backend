@@ -27,4 +27,7 @@ public class CreateCardRequestDTO {
 	private String requestType;
 	
 	private String reason;
+	
+	@NotBlank(message = "Requested user is required")
+	private String requestedUser; // Username of person creating the request
 }

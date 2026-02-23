@@ -48,6 +48,9 @@ public class Card {
 	@Column("AvailableCashLimit")
 	private BigDecimal availableCashLimit;
 
+	@Column("LastUpdatedUser")
+	private String lastUpdatedUser;
+
 	@Column("LastUpdateTime")
 	private LocalDateTime lastUpdateTime;
 }

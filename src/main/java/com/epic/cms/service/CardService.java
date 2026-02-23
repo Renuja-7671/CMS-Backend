@@ -19,8 +19,10 @@ import com.epic.cms.exception.InvalidOperationException;
 import com.epic.cms.exception.ResourceNotFoundException;
 import com.epic.cms.model.Card;
 import com.epic.cms.model.CardStatus;
+import com.epic.cms.model.User;
 import com.epic.cms.repository.CardRepository;
 import com.epic.cms.repository.CardStatusRepository;
+import com.epic.cms.repository.UserRepository;
 import com.epic.cms.util.AuditLogger;
 import com.epic.cms.util.CardEncryptionUtil;
 
@@ -34,6 +36,7 @@ public class CardService {
 
 	private final CardRepository cardRepository;
 	private final CardStatusRepository cardStatusRepository;
+	private final UserRepository userRepository;
 	private final CardEncryptionUtil cardEncryptionUtil;
 	private final AuditLogger auditLogger;
 
@@ -123,6 +126,9 @@ public class CardService {
 		log.info("Creating new card with number ending in: {}", 
 				request.getCardNumber().substring(request.getCardNumber().length() - 4));
 
+		// Validate lastUpdatedUser exists and is active
+		validateUserExistsAndActive(request.getLastUpdatedUser());
+
 		// Encrypt the card number for database storage
 		String encryptedCardNumber = cardEncryptionUtil.encryptCardNumberForDatabase(request.getCardNumber());
 
@@ -147,7 +153,8 @@ public class CardService {
 				encryptedCardNumber,
 				request.getExpiryDate().toString(),
 				request.getCreditLimit().toString(),
-				request.getCashLimit().toString());
+				request.getCashLimit().toString(),
+				request.getLastUpdatedUser());
 
 		log.info("Card created successfully");
 		
@@ -158,7 +165,7 @@ public class CardService {
 				"IACT",
 				request.getCreditLimit().toString(),
 				request.getCashLimit().toString(),
-				"SYSTEM");
+				request.getLastUpdatedUser());
 
 		// Fetch and return the created card
 		return getCardByNumber(request.getCardNumber());
@@ -170,6 +177,9 @@ public class CardService {
 	@Transactional
 	public CardDTO updateCard(String displayCardNumber, String encryptionKey, UpdateCardRequest request) {
 		log.info("Updating card");
+
+		// Validate lastUpdatedUser exists and is active
+		validateUserExistsAndActive(request.getLastUpdatedUser());
 
 		// Decrypt the display card number to get the plain card number
 		String plainCardNumber = cardEncryptionUtil.decryptMiddleDigits(displayCardNumber, encryptionKey);
@@ -207,7 +217,8 @@ public class CardService {
 				request.getCreditLimit().toString(),
 				request.getCashLimit().toString(),
 				request.getAvailableCreditLimit().toString(),
-				request.getAvailableCashLimit().toString());
+				request.getAvailableCashLimit().toString(),
+				request.getLastUpdatedUser());
 
 		log.info("Card updated successfully");
 		
@@ -219,7 +230,7 @@ public class CardService {
 					"CREDIT_LIMIT",
 					existingCard.getCreditLimit().toString(),
 					request.getCreditLimit().toString(),
-					"SYSTEM");
+					request.getLastUpdatedUser());
 		}
 		if (!existingCard.getCashLimit().equals(request.getCashLimit())) {
 			auditLogger.logCardLimitUpdate(
@@ -227,7 +238,7 @@ public class CardService {
 					"CASH_LIMIT",
 					existingCard.getCashLimit().toString(),
 					request.getCashLimit().toString(),
-					"SYSTEM");
+					request.getLastUpdatedUser());
 		}
 
 		// Fetch and return the updated card
@@ -244,6 +255,19 @@ public class CardService {
 		return cards.stream()
 				.map(this::convertToDTO)
 				.collect(Collectors.toList());
+	}
+
+	/**
+	 * Validate that the user exists and is active.
+	 * Throws exception if user not found or not active.
+	 */
+	private void validateUserExistsAndActive(String userName) {
+		User user = userRepository.findByUserName(userName)
+				.orElseThrow(() -> new ResourceNotFoundException("User", "userName", userName));
+		
+		if (!"ACT".equals(user.getStatus())) {
+			throw new InvalidOperationException("User is not active: " + userName);
+		}
 	}
 
 	/**
@@ -281,6 +305,7 @@ public class CardService {
 				.availableCashLimit(card.getAvailableCashLimit())
 				.usedCreditLimit(usedCreditLimit)
 				.usedCashLimit(usedCashLimit)
+				.lastUpdatedUser(card.getLastUpdatedUser())
 				.lastUpdateTime(card.getLastUpdateTime())
 				.build();
 	}

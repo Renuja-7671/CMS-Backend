@@ -27,6 +27,7 @@ public interface CardRepository extends CrudRepository<Card, String> {
 				c.CashLimit,
 				c.AvailableCreditLimit,
 				c.AvailableCashLimit,
+				c.LastUpdatedUser,
 				c.LastUpdateTime
 			FROM Card c
 			ORDER BY c.LastUpdateTime DESC
@@ -46,6 +47,7 @@ public interface CardRepository extends CrudRepository<Card, String> {
 				c.CashLimit,
 				c.AvailableCreditLimit,
 				c.AvailableCashLimit,
+				c.LastUpdatedUser,
 				c.LastUpdateTime
 			FROM Card c
 			WHERE c.CardNumber = :encryptedCardNumber
@@ -75,7 +77,8 @@ public interface CardRepository extends CrudRepository<Card, String> {
 				CreditLimit, 
 				CashLimit, 
 				AvailableCreditLimit, 
-				AvailableCashLimit
+				AvailableCashLimit,
+				LastUpdatedUser
 			) VALUES (
 				:encryptedCardNumber,
 				:expiryDate,
@@ -83,14 +86,16 @@ public interface CardRepository extends CrudRepository<Card, String> {
 				:creditLimit,
 				:cashLimit,
 				:creditLimit,
-				:cashLimit
+				:cashLimit,
+				:lastUpdatedUser
 			)
 			""")
 	void insertCard(
 			@Param("encryptedCardNumber") String encryptedCardNumber,
 			@Param("expiryDate") String expiryDate,
 			@Param("creditLimit") String creditLimit,
-			@Param("cashLimit") String cashLimit);
+			@Param("cashLimit") String cashLimit,
+			@Param("lastUpdatedUser") String lastUpdatedUser);
 
 	/**
 	 * Update card details using encrypted card number for WHERE clause.
@@ -103,7 +108,8 @@ public interface CardRepository extends CrudRepository<Card, String> {
 				CreditLimit = :creditLimit,
 				CashLimit = :cashLimit,
 				AvailableCreditLimit = :availableCreditLimit,
-				AvailableCashLimit = :availableCashLimit
+				AvailableCashLimit = :availableCashLimit,
+				LastUpdatedUser = :lastUpdatedUser
 			WHERE CardNumber = :encryptedCardNumber
 			""")
 	void updateCard(
@@ -112,7 +118,8 @@ public interface CardRepository extends CrudRepository<Card, String> {
 			@Param("creditLimit") String creditLimit,
 			@Param("cashLimit") String cashLimit,
 			@Param("availableCreditLimit") String availableCreditLimit,
-			@Param("availableCashLimit") String availableCashLimit);
+			@Param("availableCashLimit") String availableCashLimit,
+			@Param("lastUpdatedUser") String lastUpdatedUser);
 
 	/**
 	 * Update card status using encrypted card number for WHERE clause.
@@ -120,12 +127,14 @@ public interface CardRepository extends CrudRepository<Card, String> {
 	@Modifying
 	@Query("""
 			UPDATE Card
-			SET CardStatus = :status
+			SET CardStatus = :status,
+			    LastUpdatedUser = :lastUpdatedUser
 			WHERE CardNumber = :encryptedCardNumber
 			""")
 	void updateCardStatus(
 			@Param("encryptedCardNumber") String encryptedCardNumber,
-			@Param("status") String status);
+			@Param("status") String status,
+			@Param("lastUpdatedUser") String lastUpdatedUser);
 
 	/**
 	 * Find cards by status.
@@ -139,6 +148,7 @@ public interface CardRepository extends CrudRepository<Card, String> {
 				c.CashLimit,
 				c.AvailableCreditLimit,
 				c.AvailableCashLimit,
+				c.LastUpdatedUser,
 				c.LastUpdateTime
 			FROM Card c
 			WHERE c.CardStatus = :status
@@ -158,6 +168,7 @@ public interface CardRepository extends CrudRepository<Card, String> {
 				c.CashLimit,
 				c.AvailableCreditLimit,
 				c.AvailableCashLimit,
+				c.LastUpdatedUser,
 				c.LastUpdateTime
 			FROM Card c
 			WHERE (:status IS NULL OR c.CardStatus = :status)

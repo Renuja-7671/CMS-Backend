@@ -31,5 +31,6 @@ public class CardDTO {
 	private BigDecimal availableCashLimit;
 	private BigDecimal usedCreditLimit;
 	private BigDecimal usedCashLimit;
+	private String lastUpdatedUser;
 	private LocalDateTime lastUpdateTime;
 }

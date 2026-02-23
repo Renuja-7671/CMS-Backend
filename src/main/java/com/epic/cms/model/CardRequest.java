@@ -39,4 +39,10 @@ public class CardRequest {
 
 	@Column("ProcessedAt")
 	private LocalDateTime processedAt;
+
+	@Column("RequestedUser")
+	private String requestedUser;
+
+	@Column("ApprovedUser")
+	private String approvedUser;
 }

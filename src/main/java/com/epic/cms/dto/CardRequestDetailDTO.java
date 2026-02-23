@@ -28,6 +28,8 @@ public class CardRequestDetailDTO {
 	private String reason;
 	private LocalDateTime requestedAt;
 	private LocalDateTime processedAt;
+	private String requestedUser;
+	private String approvedUser;
 	
 	// Card Information (encrypted for API response)
 	private String displayCardNumber;

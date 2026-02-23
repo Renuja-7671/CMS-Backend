@@ -18,7 +18,7 @@ spring:
   # SQL Logging
   sql:
     init:
-      mode: never  # Don't auto-run schema.sql (already created)
+      mode: always  # Auto-run schema.sql on startup
 
 # Logging Configuration
 logging:

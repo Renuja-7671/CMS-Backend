@@ -182,15 +182,16 @@ public class CardRequestController {
 	 * Approve a card request.
 	 * Updates the request status to APPR and changes the card status accordingly.
 	 * 
-	 * PUT /api/card-requests/{requestId}/approve
+	 * PUT /api/card-requests/{requestId}/approve?approvedUser=username
 	 */
 	@PutMapping("/{requestId}/approve")
 	public ResponseEntity<ApiResponse<CardRequestDTO>> approveCardRequest(
-			@PathVariable Long requestId) {
+			@PathVariable Long requestId,
+			@RequestParam String approvedUser) {
 		
-		log.info("Received request to approve card request with ID: {}", requestId);
+		log.info("Received request to approve card request with ID: {} by user: {}", requestId, approvedUser);
 		
-		CardRequestDTO approvedRequest = cardRequestService.approveCardRequest(requestId);
+		CardRequestDTO approvedRequest = cardRequestService.approveCardRequest(requestId, approvedUser);
 		
 		ApiResponse<CardRequestDTO> response = ApiResponse.<CardRequestDTO>builder()
 			.success(true)
@@ -205,15 +206,16 @@ public class CardRequestController {
 	 * Reject a card request.
 	 * Updates the request status to RJCT without changing the card status.
 	 * 
-	 * PUT /api/card-requests/{requestId}/reject
+	 * PUT /api/card-requests/{requestId}/reject?approvedUser=username
 	 */
 	@PutMapping("/{requestId}/reject")
 	public ResponseEntity<ApiResponse<CardRequestDTO>> rejectCardRequest(
-			@PathVariable Long requestId) {
+			@PathVariable Long requestId,
+			@RequestParam String approvedUser) {
 		
-		log.info("Received request to reject card request with ID: {}", requestId);
+		log.info("Received request to reject card request with ID: {} by user: {}", requestId, approvedUser);
 		
-		CardRequestDTO rejectedRequest = cardRequestService.rejectCardRequest(requestId);
+		CardRequestDTO rejectedRequest = cardRequestService.rejectCardRequest(requestId, approvedUser);
 		
 		ApiResponse<CardRequestDTO> response = ApiResponse.<CardRequestDTO>builder()
 			.success(true)
@@ -273,15 +275,16 @@ public class CardRequestController {
 	 * Updates the request status to APPR and changes the card status accordingly.
 	 * For ACTI requests: Card status IACT/DACT -> CACT
 	 * 
-	 * PUT /api/card-requests/{requestId}/approve/details
+	 * PUT /api/card-requests/{requestId}/approve/details?approvedUser=username
 	 */
 	@PutMapping("/{requestId}/approve/details")
 	public ResponseEntity<ApiResponse<CardRequestDetailDTO>> approveRequestWithDetails(
-			@PathVariable Long requestId) {
+			@PathVariable Long requestId,
+			@RequestParam String approvedUser) {
 		
-		log.info("Received request to approve card request with ID: {} (with details)", requestId);
+		log.info("Received request to approve card request with ID: {} by user: {} (with details)", requestId, approvedUser);
 		
-		CardRequestDetailDTO approvedRequest = cardRequestService.approveRequestWithDetails(requestId);
+		CardRequestDetailDTO approvedRequest = cardRequestService.approveRequestWithDetails(requestId, approvedUser);
 		
 		ApiResponse<CardRequestDetailDTO> response = ApiResponse.<CardRequestDetailDTO>builder()
 			.success(true)
@@ -296,15 +299,16 @@ public class CardRequestController {
 	 * Reject a card request with card status update.
 	 * Updates the request status to RJCT and sets card status to DACT.
 	 * 
-	 * PUT /api/card-requests/{requestId}/reject/details
+	 * PUT /api/card-requests/{requestId}/reject/details?approvedUser=username
 	 */
 	@PutMapping("/{requestId}/reject/details")
 	public ResponseEntity<ApiResponse<CardRequestDetailDTO>> rejectRequestWithDetails(
-			@PathVariable Long requestId) {
+			@PathVariable Long requestId,
+			@RequestParam String approvedUser) {
 		
-		log.info("Received request to reject card request with ID: {} (with details)", requestId);
+		log.info("Received request to reject card request with ID: {} by user: {} (with details)", requestId, approvedUser);
 		
-		CardRequestDetailDTO rejectedRequest = cardRequestService.rejectRequestWithDetails(requestId);
+		CardRequestDetailDTO rejectedRequest = cardRequestService.rejectRequestWithDetails(requestId, approvedUser);
 		
 		ApiResponse<CardRequestDetailDTO> response = ApiResponse.<CardRequestDetailDTO>builder()
 			.success(true)

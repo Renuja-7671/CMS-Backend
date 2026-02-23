@@ -43,4 +43,7 @@ public class CreateCardRequest {
 	@NotNull(message = "Cash limit is required")
 	@DecimalMin(value = "0.0", inclusive = true, message = "Cash limit must be positive")
 	private BigDecimal cashLimit;
+
+	@NotBlank(message = "Last updated user is required")
+	private String lastUpdatedUser;
 }

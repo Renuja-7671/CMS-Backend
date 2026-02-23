@@ -26,4 +26,6 @@ public class CardRequestDTO {
 	private String reason;
 	private LocalDateTime requestedAt;
 	private LocalDateTime processedAt;
+	private String requestedUser;
+	private String approvedUser;
 }

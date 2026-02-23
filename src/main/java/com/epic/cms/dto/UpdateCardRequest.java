@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -47,4 +48,7 @@ public class UpdateCardRequest {
 	@NotNull(message = "Available cash limit is required")
 	@DecimalMin(value = "0.0", inclusive = true, message = "Available cash limit must be positive")
 	private BigDecimal availableCashLimit;
+
+	@NotBlank(message = "Last updated user is required")
+	private String lastUpdatedUser;
 }

@@ -5,6 +5,7 @@
 -- Drop tables if they exist (in reverse order of dependencies)
 DROP TABLE IF EXISTS CardRequest;
 DROP TABLE IF EXISTS Card;
+DROP TABLE IF EXISTS User;
 DROP TABLE IF EXISTS CardRequestType;
 DROP TABLE IF EXISTS RequestStatus;
 DROP TABLE IF EXISTS CardStatus;
@@ -38,18 +39,33 @@ CREATE TABLE CardRequestType (
 -- Main Tables
 -- ============================================================
 
+-- User table: Stores user information
+CREATE TABLE User (
+    UserName VARCHAR(50) PRIMARY KEY,
+    Status VARCHAR(20) NOT NULL,
+    Name VARCHAR(100) NOT NULL,
+    Description VARCHAR(500),
+    CreatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    LastUpdateTime TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT chk_user_status CHECK (Status IN ('ACT', 'DACT')),
+    CONSTRAINT chk_username_not_empty CHECK (LENGTH(UserName) > 0),
+    CONSTRAINT chk_name_not_empty CHECK (LENGTH(Name) > 0)
+);
+
 -- Card table: Stores card information
+-- Note: CardNumber stores ENCRYPTED card numbers (Base64-encoded), so VARCHAR(255) is required
 CREATE TABLE Card (
-    CardNumber VARCHAR(16) PRIMARY KEY,
+    CardNumber VARCHAR(255) PRIMARY KEY,
     ExpiryDate DATE NOT NULL,
     CardStatus VARCHAR(20) NOT NULL DEFAULT 'IACT',
     CreditLimit DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
     CashLimit DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
     AvailableCreditLimit DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
     AvailableCashLimit DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    LastUpdatedUser VARCHAR(50) NOT NULL,
     LastUpdateTime TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_card_status FOREIGN KEY (CardStatus) REFERENCES CardStatus(StatusCode),
-    CONSTRAINT chk_card_number CHECK (LENGTH(CardNumber) >= 13 AND LENGTH(CardNumber) <= 16),
+    CONSTRAINT fk_card_last_updated_user FOREIGN KEY (LastUpdatedUser) REFERENCES User(UserName),
     CONSTRAINT chk_credit_limit CHECK (CreditLimit >= 0),
     CONSTRAINT chk_cash_limit CHECK (CashLimit >= 0),
     CONSTRAINT chk_available_credit CHECK (AvailableCreditLimit >= 0 AND AvailableCreditLimit <= CreditLimit),
@@ -57,17 +73,22 @@ CREATE TABLE Card (
 );
 
 -- CardRequest table: Stores card activation/deactivation requests
+-- Note: CardNumber references encrypted card numbers, so VARCHAR(255) is required
 CREATE TABLE CardRequest (
     RequestID BIGINT AUTO_INCREMENT PRIMARY KEY,
-    CardNumber VARCHAR(16) NOT NULL,
+    CardNumber VARCHAR(255) NOT NULL,
     RequestStatusCode VARCHAR(20) NOT NULL DEFAULT 'PEND',
     RequestTypeCode VARCHAR(20) NOT NULL,
     Reason VARCHAR(500),
     RequestedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     ProcessedAt TIMESTAMP NULL,
+    RequestedUser VARCHAR(50),
+    ApprovedUser VARCHAR(50),
     CONSTRAINT fk_request_card FOREIGN KEY (CardNumber) REFERENCES Card(CardNumber) ON DELETE CASCADE,
     CONSTRAINT fk_request_status FOREIGN KEY (RequestStatusCode) REFERENCES RequestStatus(StatusCode),
-    CONSTRAINT fk_request_type FOREIGN KEY (RequestTypeCode) REFERENCES CardRequestType(Code)
+    CONSTRAINT fk_request_type FOREIGN KEY (RequestTypeCode) REFERENCES CardRequestType(Code),
+    CONSTRAINT fk_request_requested_user FOREIGN KEY (RequestedUser) REFERENCES User(UserName),
+    CONSTRAINT fk_request_approved_user FOREIGN KEY (ApprovedUser) REFERENCES User(UserName)
 );
 
 -- ============================================================
@@ -79,6 +100,8 @@ CREATE INDEX idx_card_update_time ON Card(LastUpdateTime);
 CREATE INDEX idx_request_status ON CardRequest(RequestStatusCode);
 CREATE INDEX idx_request_card ON CardRequest(CardNumber);
 CREATE INDEX idx_request_created ON CardRequest(RequestedAt);
+CREATE INDEX idx_user_status ON User(Status);
+CREATE INDEX idx_user_update_time ON User(LastUpdateTime);
 
 -- ============================================================
 -- Initial Data
@@ -102,19 +125,23 @@ INSERT INTO CardRequestType (Code, Description) VALUES
 ('CDCL', 'Card Close Request');
 
 -- ============================================================
--- Sample Cards (Optional - for testing)
+-- Sample Users (Initial Data)
 -- ============================================================
 
-INSERT INTO Card (CardNumber, ExpiryDate, CardStatus, CreditLimit, CashLimit, AvailableCreditLimit, AvailableCashLimit) VALUES
-('4532015112830366', '2027-12-31', 'CACT', 100000.00, 50000.00, 75000.00, 40000.00),
-('5425233430109903', '2028-06-30', 'CACT', 150000.00, 75000.00, 150000.00, 75000.00),
-('6011111111111117', '2026-03-31', 'IACT', 80000.00, 40000.00, 80000.00, 40000.00),
-('378282246310005', '2027-09-30', 'DACT', 200000.00, 100000.00, 120000.00, 60000.00);
+INSERT INTO User (UserName, Status, Name, Description) VALUES
+('admin', 'ACT', 'Supun', 'I am the main admin'),
+('admin1', 'DACT', 'Vidura', 'I am the second admin');
+
+-- ============================================================
+-- Sample Cards (Optional - for testing)
+-- ============================================================
+-- NOTE: Sample cards removed because CardNumber now stores ENCRYPTED values.
+-- Cards must be created through the application API to ensure proper encryption.
+-- Plain card numbers cannot be inserted directly into the database.
 
 -- ============================================================
 -- Sample Card Requests (Optional - for testing)
 -- ============================================================
+-- NOTE: Sample card requests removed because they reference encrypted CardNumbers.
+-- Card requests must be created through the application API after creating cards.
 
-INSERT INTO CardRequest (CardNumber, RequestStatusCode, RequestTypeCode, Reason) VALUES
-('6011111111111117', 'PEND', 'ACTI', 'Customer requested to activate card for international travel'),
-('4532015112830366', 'APPR', 'CDCL', 'Card close request approved after clearing all debts');

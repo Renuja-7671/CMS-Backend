@@ -36,13 +36,14 @@ public interface CardRequestRepository extends CrudRepository<CardRequest, Long>
 	 */
 	@Modifying
 	@Query("""
-		INSERT INTO CardRequest (CardNumber, RequestTypeCode, RequestStatusCode, Reason, RequestedAt)
-		VALUES (:encryptedCardNumber, :requestTypeCode, 'PEND', :reason, NOW())
+		INSERT INTO CardRequest (CardNumber, RequestTypeCode, RequestStatusCode, Reason, RequestedAt, RequestedUser)
+		VALUES (:encryptedCardNumber, :requestTypeCode, 'PEND', :reason, NOW(), :requestedUser)
 		""")
 	void insertCardRequest(
 		@Param("encryptedCardNumber") String encryptedCardNumber,
 		@Param("requestTypeCode") String requestTypeCode,
-		@Param("reason") String reason
+		@Param("reason") String reason,
+		@Param("requestedUser") String requestedUser
 	);
 	
 	/**
@@ -51,10 +52,10 @@ public interface CardRequestRepository extends CrudRepository<CardRequest, Long>
 	@Modifying
 	@Query("""
 		UPDATE CardRequest
-		SET RequestStatusCode = 'APPR', ProcessedAt = NOW()
+		SET RequestStatusCode = 'APPR', ProcessedAt = NOW(), ApprovedUser = :approvedUser
 		WHERE RequestID = :requestId AND RequestStatusCode = 'PEND'
 		""")
-	void approveRequest(@Param("requestId") Long requestId);
+	void approveRequest(@Param("requestId") Long requestId, @Param("approvedUser") String approvedUser);
 	
 	/**
 	 * Update request status to rejected.
@@ -62,35 +63,25 @@ public interface CardRequestRepository extends CrudRepository<CardRequest, Long>
 	@Modifying
 	@Query("""
 		UPDATE CardRequest
-		SET RequestStatusCode = 'RJCT', ProcessedAt = NOW()
-		WHERE RequestID = :requestId
+		SET RequestStatusCode = 'RJCT', ProcessedAt = NOW(), ApprovedUser = :approvedUser
+		WHERE RequestID = :requestId AND RequestStatusCode = 'PEND'
 		""")
-	void rejectRequest(@Param("requestId") Long requestId);
+	void rejectRequest(@Param("requestId") Long requestId, @Param("approvedUser") String approvedUser);
 	
 	/**
-	 * Check if there's a pending request for a card.
-	 * Parameter is already encrypted by service layer.
-	 */
-	@Query("""
-		SELECT COUNT(*)
-		FROM CardRequest
-		WHERE CardNumber = :encryptedCardNumber AND RequestStatusCode = 'PEND'
-		""")
-	int countPendingRequestsForCard(@Param("encryptedCardNumber") String encryptedCardNumber);
-	
-	/**
-	 * Update card status.
-	 * Parameter is already encrypted by service layer.
+	 * Update card status after approving/rejecting a request.
 	 */
 	@Modifying
 	@Query("""
 		UPDATE Card
-		SET CardStatus = :status
+		SET CardStatus = :status,
+		    LastUpdatedUser = :lastUpdatedUser
 		WHERE CardNumber = :encryptedCardNumber
 		""")
 	void updateCardStatus(
 		@Param("encryptedCardNumber") String encryptedCardNumber,
-		@Param("status") String status
+		@Param("status") String status,
+		@Param("lastUpdatedUser") String lastUpdatedUser
 	);
 	
 	/**
@@ -171,5 +162,11 @@ public interface CardRequestRepository extends CrudRepository<CardRequest, Long>
 	 */
 	@Query("SELECT COUNT(*) FROM CardRequest WHERE RequestStatusCode = 'PEND'")
 	long countPendingRequests();
+	
+	/**
+	 * Count pending requests for a specific card.
+	 */
+	@Query("SELECT COUNT(*) FROM CardRequest WHERE CardNumber = :encryptedCardNumber AND RequestStatusCode = 'PEND'")
+	long countPendingRequestsForCard(@Param("encryptedCardNumber") String encryptedCardNumber);
 }
 
