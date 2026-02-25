@@ -40,6 +40,9 @@ card:
     # IMPORTANT: Never change this key after data is encrypted, or data will be unrecoverable
     # Store securely in production (environment variable, vault)
     database-key: 8K3mP9vR2wX5yB7nC4jF6hL1qT0sV8uZ3aD5gH9kM2o=
+  
+  # Admin password for viewing plain card numbers
+  admin-password: Renuja
 
 server:
   port: 8090

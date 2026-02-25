@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,6 +15,8 @@ import com.epic.cms.dto.CreateCardRequest;
 import com.epic.cms.dto.PageRequest;
 import com.epic.cms.dto.PageResponse;
 import com.epic.cms.dto.UpdateCardRequest;
+import com.epic.cms.dto.ViewCardNumberRequest;
+import com.epic.cms.dto.ViewCardNumberResponse;
 import com.epic.cms.exception.DuplicateResourceException;
 import com.epic.cms.exception.InvalidOperationException;
 import com.epic.cms.exception.ResourceNotFoundException;
@@ -39,6 +42,9 @@ public class CardService {
 	private final UserRepository userRepository;
 	private final CardEncryptionUtil cardEncryptionUtil;
 	private final AuditLogger auditLogger;
+
+	@Value("${card.admin-password}")
+	private String adminPassword;
 
 	/**
 	 * Get all cards.
@@ -293,7 +299,7 @@ public class CardService {
 		String encryptionKey = encryptionResult.get("encryptionKey");
 
 		return CardDTO.builder()
-				.cardNumber(null) // Don't include plain card number in response
+				.cardNumber(card.getCardNumber()) // Include encrypted card number from DB (used as ID)
 				.displayCardNumber(displayCardNumber) // First 6 + encrypted middle + last 4
 				.encryptionKey(encryptionKey) // Send key for later decryption
 				.expiryDate(card.getExpiryDate())
@@ -302,11 +308,77 @@ public class CardService {
 				.creditLimit(card.getCreditLimit())
 				.cashLimit(card.getCashLimit())
 				.availableCreditLimit(card.getAvailableCreditLimit())
-				.availableCashLimit(card.getAvailableCashLimit())
-				.usedCreditLimit(usedCreditLimit)
-				.usedCashLimit(usedCashLimit)
-				.lastUpdatedUser(card.getLastUpdatedUser())
-				.lastUpdateTime(card.getLastUpdateTime())
-				.build();
+			.availableCashLimit(card.getAvailableCashLimit())
+			.usedCreditLimit(usedCreditLimit)
+			.usedCashLimit(usedCashLimit)
+			.lastUpdatedUser(card.getLastUpdatedUser())
+			.lastUpdateTime(card.getLastUpdateTime())
+			.build();
+	}
+
+	/**
+	 * View plain card number with admin password verification.
+	 * 
+	 * @param request ViewCardNumberRequest containing cardId and admin password
+	 * @return ViewCardNumberResponse with plain and masked card numbers
+	 * @throws InvalidOperationException if admin password is incorrect
+	 * @throws ResourceNotFoundException if card not found
+	 */
+	@Transactional(readOnly = true)
+	public ViewCardNumberResponse viewPlainCardNumber(ViewCardNumberRequest request) {
+		log.info("Request to view plain card number for card ID: {}", request.getCardId());
+		log.debug("CardID type: {}, Value: '{}'", request.getCardId().getClass().getName(), request.getCardId());
+
+		// Verify admin password
+		if (!adminPassword.equals(request.getAdminPassword())) {
+			log.warn("Incorrect admin password attempt for card ID: {}", request.getCardId());
+			auditLogger.logSecurityEvent(
+				"CARD_VIEW_UNAUTHORIZED",
+				"Incorrect admin password attempt for viewing card number",
+				"CardID=" + request.getCardId()
+			);
+			throw new InvalidOperationException("Invalid admin password");
+		}
+
+		// Fetch card from database
+		log.debug("Attempting to find card with ID: '{}'", request.getCardId());
+		Card card = cardRepository.findById(request.getCardId())
+			.orElseThrow(() -> {
+				log.error("Card not found with ID: {}", request.getCardId());
+				return new ResourceNotFoundException("Card", "ID", request.getCardId());
+			});
+		log.debug("Card found successfully: {}", card);
+
+		// Decrypt the plain card number from database
+		String plainCardNumber = cardEncryptionUtil.decryptCardNumberFromDatabase(card.getCardNumber());
+
+		// Generate masked card number for reference
+		String maskedCardNumber = maskCardNumber(plainCardNumber);
+
+		// Log the successful view attempt
+		log.info("Admin successfully viewed plain card number for card ID: {}", request.getCardId());
+		auditLogger.logSecurityEvent(
+			"CARD_VIEW_SUCCESS",
+			"Admin viewed plain card number",
+			"CardID=" + request.getCardId() + " | MaskedNumber=" + maskedCardNumber
+		);
+
+		return ViewCardNumberResponse.builder()
+			.cardId(card.getCardNumber())
+			.plainCardNumber(plainCardNumber)
+			.maskedCardNumber(maskedCardNumber)
+			.build();
+	}
+
+	/**
+	 * Mask card number showing first 6 and last 4 digits.
+	 */
+	private String maskCardNumber(String plainCardNumber) {
+		if (plainCardNumber == null || plainCardNumber.length() < 10) {
+			return "****";
+		}
+		String first6 = plainCardNumber.substring(0, 6);
+		String last4 = plainCardNumber.substring(plainCardNumber.length() - 4);
+		return first6 + "****" + last4;
 	}
 }

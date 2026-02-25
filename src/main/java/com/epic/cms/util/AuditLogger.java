@@ -177,6 +177,17 @@ public class AuditLogger {
 	}
 
 	/**
+	 * Log security event (admin access, password verification, etc.).
+	 */
+	public void logSecurityEvent(String eventType, String description, String details) {
+		MDC.put("correlationId", generateCorrelationId());
+		MDC.put("operation", eventType);
+		SECURITY_LOG.info("SECURITY_EVENT | Type={} | Description={} | Details={} | Timestamp={}",
+				eventType, description, details, LocalDateTime.now());
+		clearContext();
+	}
+
+	/**
 	 * Log system error.
 	 */
 	public void logSystemError(String operation, String errorMessage, String stackTrace) {

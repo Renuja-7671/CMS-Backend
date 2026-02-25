@@ -22,13 +22,7 @@ public class Card {
 
 	@Id
 	@Column("CardNumber")
-	private String cardNumber;
-
-	@Column("EncryptedCardNumber")
-	private String encryptedCardNumber;
-
-	@Column("CardNumberHash")
-	private String cardNumberHash;
+	private String cardNumber; // Encrypted card number (primary key)
 
 	@Column("ExpiryDate")
 	private LocalDate expiryDate;

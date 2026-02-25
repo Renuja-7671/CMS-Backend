@@ -24,6 +24,8 @@ import com.epic.cms.dto.PageResponse;
 import com.epic.cms.dto.PaginatedQueryRequest;
 import com.epic.cms.dto.SecureEncryptedPayloadRequest;
 import com.epic.cms.dto.UpdateCardRequest;
+import com.epic.cms.dto.ViewCardNumberRequest;
+import com.epic.cms.dto.ViewCardNumberResponse;
 import com.epic.cms.exception.InvalidOperationException;
 import com.epic.cms.service.CardService;
 import com.epic.cms.service.KeyManagementService;
@@ -275,5 +277,24 @@ public class CardController {
 		List<CardDTO> cards = cardService.getAllCards();
 		return ResponseEntity.ok(
 				ApiResponse.success("Cards retrieved successfully", cards));
+	}
+
+	/**
+	 * View plain card number with admin password verification.
+	 * Endpoint: POST /api/cards/view-plain-number
+	 * 
+	 * @param request ViewCardNumberRequest with cardId and admin password
+	 * @return Plain card number if password is correct
+	 */
+	@PostMapping("/view-plain-number")
+	public ResponseEntity<ApiResponse<ViewCardNumberResponse>> viewPlainCardNumber(
+			@Valid @RequestBody ViewCardNumberRequest request) {
+		log.info("POST /api/cards/view-plain-number - Request to view plain card number for card ID: {}", 
+				request.getCardId());
+		
+		ViewCardNumberResponse response = cardService.viewPlainCardNumber(request);
+		
+		return ResponseEntity.ok(
+				ApiResponse.success("Card number retrieved successfully", response));
 	}
 }
