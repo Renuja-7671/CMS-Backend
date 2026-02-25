@@ -26,9 +26,9 @@ public class PublicKeyResponse {
 	private String publicKey;
 	
 	/**
-	 * Timestamp when the key was generated.
+	 * Expiry time of the key pair (ISO format).
 	 */
-	private String timestamp;
+	private String expiryTime;
 	
 	/**
 	 * TTL (time to live) in seconds.

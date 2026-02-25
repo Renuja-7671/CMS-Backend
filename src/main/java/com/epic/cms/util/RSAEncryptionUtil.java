@@ -96,7 +96,24 @@ public class RSAEncryptionUtil {
 			byte[] encryptedBytes = Base64.getDecoder().decode(encryptedData);
 			byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
 			
-			log.debug("RSA decryption successful");
+			log.debug("RSA decryption successful, decrypted {} bytes", decryptedBytes.length);
+			
+			// Check if the decrypted data is a base64-encoded string (from frontend)
+			// Frontend base64-encodes the AES key before encrypting with RSA
+			// If the decrypted bytes form a valid base64 string, decode it
+			try {
+				String decryptedString = new String(decryptedBytes, java.nio.charset.StandardCharsets.UTF_8);
+				// Check if it looks like base64 (only contains base64 characters)
+				if (decryptedString.matches("^[A-Za-z0-9+/=]+$")) {
+					byte[] decodedKey = Base64.getDecoder().decode(decryptedString);
+					log.debug("Decoded base64-encoded AES key, final key length: {} bytes", decodedKey.length);
+					return decodedKey;
+				}
+			} catch (Exception e) {
+				// Not base64, return raw bytes
+				log.debug("Decrypted data is not base64-encoded, using raw bytes");
+			}
+			
 			return decryptedBytes;
 			
 		} catch (Exception e) {
@@ -137,6 +154,44 @@ public class RSAEncryptionUtil {
 		} catch (Exception e) {
 			log.error("RSA encryption failed", e);
 			throw new EncryptionException("RSA encryption", "Failed to encrypt data with RSA public key", e);
+		}
+	}
+
+	/**
+	 * Encode public key to Base64 string and then decode it back.
+	 * Used for testing purposes.
+	 * 
+	 * @param encodedPublicKey Base64-encoded public key string
+	 * @return PublicKey object
+	 * @throws RuntimeException if decoding fails
+	 */
+	public PublicKey decodePublicKey(String encodedPublicKey) {
+		try {
+			byte[] keyBytes = Base64.getDecoder().decode(encodedPublicKey);
+			java.security.spec.X509EncodedKeySpec spec = new java.security.spec.X509EncodedKeySpec(keyBytes);
+			java.security.KeyFactory keyFactory = java.security.KeyFactory.getInstance(RSA_ALGORITHM);
+			return keyFactory.generatePublic(spec);
+		} catch (Exception e) {
+			log.error("Failed to decode public key", e);
+			throw new EncryptionException("Public key decoding", "Failed to decode public key", e);
+		}
+	}
+
+	/**
+	 * Generate a random AES-256 key.
+	 * Used for encrypting response data.
+	 * 
+	 * @return Random AES-256 key as byte array
+	 */
+	public byte[] generateAESKey() {
+		try {
+			javax.crypto.KeyGenerator keyGen = javax.crypto.KeyGenerator.getInstance("AES");
+			keyGen.init(256, new SecureRandom());
+			javax.crypto.SecretKey secretKey = keyGen.generateKey();
+			return secretKey.getEncoded();
+		} catch (Exception e) {
+			log.error("Failed to generate AES key", e);
+			throw new EncryptionException("AES key generation", "Failed to generate AES key", e);
 		}
 	}
 }

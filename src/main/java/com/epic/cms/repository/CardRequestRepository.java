@@ -114,6 +114,23 @@ public interface CardRequestRepository extends CrudRepository<CardRequest, Long>
 			@Param("offset") int offset);
 	
 	/**
+	 * Get requests with card details, filtered by status (or ALL) and with pagination.
+	 * Used for the request confirmation page with status filtering.
+	 */
+	@Query("""
+		SELECT cr.*
+		FROM CardRequest cr
+		JOIN Card c ON cr.CardNumber = c.CardNumber
+		WHERE (:status IS NULL OR :status = 'ALL' OR cr.RequestStatusCode = :status)
+		ORDER BY cr.RequestedAt DESC
+		LIMIT :limit OFFSET :offset
+		""")
+	Iterable<CardRequest> findRequestsWithCardDetailsAndPagination(
+			@Param("status") String status,
+			@Param("limit") int limit,
+			@Param("offset") int offset);
+	
+	/**
 	 * Find all card requests with pagination and optional filtering.
 	 */
 	@Query("""
@@ -162,6 +179,18 @@ public interface CardRequestRepository extends CrudRepository<CardRequest, Long>
 	 */
 	@Query("SELECT COUNT(*) FROM CardRequest WHERE RequestStatusCode = 'PEND'")
 	long countPendingRequests();
+	
+	/**
+	 * Count requests with card details, filtered by status (or ALL).
+	 * Used for pagination in the request confirmation page.
+	 */
+	@Query("""
+		SELECT COUNT(*) 
+		FROM CardRequest cr
+		JOIN Card c ON cr.CardNumber = c.CardNumber
+		WHERE (:status IS NULL OR :status = 'ALL' OR cr.RequestStatusCode = :status)
+		""")
+	long countRequestsWithCardDetails(@Param("status") String status);
 	
 	/**
 	 * Count pending requests for a specific card.

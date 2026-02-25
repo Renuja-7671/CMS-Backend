@@ -15,11 +15,13 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.epic.cms.dto.ApiResponse;
+import com.epic.cms.dto.ApproveRejectRequest;
 import com.epic.cms.dto.CardRequestDTO;
 import com.epic.cms.dto.CardRequestDetailDTO;
 import com.epic.cms.dto.CreateCardRequestDTO;
 import com.epic.cms.dto.PageRequest;
 import com.epic.cms.dto.PageResponse;
+import com.epic.cms.dto.PaginatedQueryRequest;
 import com.epic.cms.service.CardRequestService;
 
 import jakarta.validation.Valid;
@@ -255,15 +257,18 @@ public class CardRequestController {
 	@GetMapping("/pending/details/paginated")
 	public ResponseEntity<ApiResponse<PageResponse<CardRequestDetailDTO>>> getPendingRequestsWithDetailsPaginated(
 			@RequestParam(defaultValue = "0") int page,
-			@RequestParam(defaultValue = "10") int size) {
-		log.info("Received request to get pending requests with card details and pagination: page={}, size={}", page, size);
+			@RequestParam(defaultValue = "10") int size,
+			@RequestParam(defaultValue = "PEND") String status) {
+		log.info("Received request to get requests with card details and pagination: page={}, size={}, status={}", 
+				page, size, status);
 		
 		PageRequest pageRequest = PageRequest.of(page, size);
-		PageResponse<CardRequestDetailDTO> requests = cardRequestService.getPendingRequestsWithCardDetailsPaginated(pageRequest);
+		PageResponse<CardRequestDetailDTO> requests = cardRequestService.getRequestsWithCardDetailsPaginated(
+				status, pageRequest);
 		
 		ApiResponse<PageResponse<CardRequestDetailDTO>> response = ApiResponse.<PageResponse<CardRequestDetailDTO>>builder()
 			.success(true)
-			.message("Pending requests with card details retrieved successfully")
+			.message("Requests with card details retrieved successfully")
 			.data(requests)
 			.build();
 		
@@ -275,16 +280,20 @@ public class CardRequestController {
 	 * Updates the request status to APPR and changes the card status accordingly.
 	 * For ACTI requests: Card status IACT/DACT -> CACT
 	 * 
-	 * PUT /api/card-requests/{requestId}/approve/details?approvedUser=username
+	 * PUT /api/card-requests/{requestId}/approve/details
 	 */
 	@PutMapping("/{requestId}/approve/details")
 	public ResponseEntity<ApiResponse<CardRequestDetailDTO>> approveRequestWithDetails(
 			@PathVariable Long requestId,
-			@RequestParam String approvedUser) {
+			@Valid @RequestBody ApproveRejectRequest request) {
 		
-		log.info("Received request to approve card request with ID: {} by user: {} (with details)", requestId, approvedUser);
+		log.info("Received request to approve card request with ID: {} by user: {} (with details)", 
+				requestId, request.getApprovedUser());
 		
-		CardRequestDetailDTO approvedRequest = cardRequestService.approveRequestWithDetails(requestId, approvedUser);
+		CardRequestDetailDTO approvedRequest = cardRequestService.approveRequestWithDetails(
+			requestId, 
+			request.getApprovedUser()
+		);
 		
 		ApiResponse<CardRequestDetailDTO> response = ApiResponse.<CardRequestDetailDTO>builder()
 			.success(true)
@@ -299,21 +308,97 @@ public class CardRequestController {
 	 * Reject a card request with card status update.
 	 * Updates the request status to RJCT and sets card status to DACT.
 	 * 
-	 * PUT /api/card-requests/{requestId}/reject/details?approvedUser=username
+	 * PUT /api/card-requests/{requestId}/reject/details
 	 */
 	@PutMapping("/{requestId}/reject/details")
 	public ResponseEntity<ApiResponse<CardRequestDetailDTO>> rejectRequestWithDetails(
 			@PathVariable Long requestId,
-			@RequestParam String approvedUser) {
+			@Valid @RequestBody ApproveRejectRequest request) {
 		
-		log.info("Received request to reject card request with ID: {} by user: {} (with details)", requestId, approvedUser);
+		log.info("Received request to reject card request with ID: {} by user: {} (with details)", 
+				requestId, request.getApprovedUser());
 		
-		CardRequestDetailDTO rejectedRequest = cardRequestService.rejectRequestWithDetails(requestId, approvedUser);
+		CardRequestDetailDTO rejectedRequest = cardRequestService.rejectRequestWithDetails(
+			requestId, 
+			request.getApprovedUser()
+		);
 		
 		ApiResponse<CardRequestDetailDTO> response = ApiResponse.<CardRequestDetailDTO>builder()
 			.success(true)
 			.message("Card request rejected and card deactivated")
 			.data(rejectedRequest)
+			.build();
+		
+		return ResponseEntity.ok(response);
+	}
+
+	/**
+	 * Get all card requests with pagination and filtering (POST version for encryption).
+	 * 
+	 * POST /api/card-requests/query/paginated
+	 */
+	@PostMapping("/query/paginated")
+	public ResponseEntity<ApiResponse<PageResponse<CardRequestDTO>>> queryCardRequestsPaginated(
+			@RequestBody PaginatedQueryRequest queryRequest) {
+		log.info("POST /api/card-requests/query/paginated - Query card requests: page={}, size={}, status={}, search={}", 
+				queryRequest.getPage(), queryRequest.getSize(), queryRequest.getStatus(), queryRequest.getSearch());
+		
+		PageRequest pageRequest = PageRequest.of(queryRequest.getPage(), queryRequest.getSize());
+		PageResponse<CardRequestDTO> requests = cardRequestService.getAllCardRequestsWithPagination(
+			pageRequest, 
+			queryRequest.getStatus(), 
+			queryRequest.getSearch()
+		);
+		
+		ApiResponse<PageResponse<CardRequestDTO>> response = ApiResponse.<PageResponse<CardRequestDTO>>builder()
+			.success(true)
+			.message("Card requests retrieved successfully")
+			.data(requests)
+			.build();
+		
+		return ResponseEntity.ok(response);
+	}
+
+	/**
+	 * Get all card requests (POST version for encryption).
+	 * 
+	 * POST /api/card-requests/query/all
+	 */
+	@PostMapping("/query/all")
+	public ResponseEntity<ApiResponse<List<CardRequestDTO>>> queryAllCardRequests() {
+		log.info("POST /api/card-requests/query/all - Fetch all card requests");
+		
+		List<CardRequestDTO> requests = cardRequestService.getAllCardRequests();
+		
+		ApiResponse<List<CardRequestDTO>> response = ApiResponse.<List<CardRequestDTO>>builder()
+			.success(true)
+			.message("Card requests retrieved successfully")
+			.data(requests)
+			.build();
+		
+		return ResponseEntity.ok(response);
+	}
+
+	/**
+	 * Get pending requests with card details (POST version for encryption with filtering).
+	 * 
+	 * POST /api/card-requests/query/pending/details
+	 */
+	@PostMapping("/query/pending/details")
+	public ResponseEntity<ApiResponse<PageResponse<CardRequestDetailDTO>>> queryPendingRequestsWithDetails(
+			@RequestBody PaginatedQueryRequest queryRequest) {
+		log.info("POST /api/card-requests/query/pending/details - Query requests with card details: page={}, size={}, status={}", 
+				queryRequest.getPage(), queryRequest.getSize(), queryRequest.getStatus());
+		
+		String status = queryRequest.getStatus() != null ? queryRequest.getStatus() : "PEND";
+		PageRequest pageRequest = PageRequest.of(queryRequest.getPage(), queryRequest.getSize());
+		PageResponse<CardRequestDetailDTO> requests = cardRequestService.getRequestsWithCardDetailsPaginated(
+				status, pageRequest);
+		
+		ApiResponse<PageResponse<CardRequestDetailDTO>> response = ApiResponse.<PageResponse<CardRequestDetailDTO>>builder()
+			.success(true)
+			.message("Requests with card details retrieved successfully")
+			.data(requests)
 			.build();
 		
 		return ResponseEntity.ok(response);

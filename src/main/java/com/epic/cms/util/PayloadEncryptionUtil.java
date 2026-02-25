@@ -33,11 +33,17 @@ public class PayloadEncryptionUtil {
     private final RSAEncryptionUtil rsaEncryptionUtil;
     private final ObjectMapper objectMapper;
 
-    public PayloadEncryptionUtil(RSAEncryptionUtil rsaEncryptionUtil) {
+    /**
+     * Constructor with dependency injection.
+     * Uses Spring-managed ObjectMapper bean which is already configured with JavaTimeModule
+     * in JacksonConfig.java
+     * 
+     * @param rsaEncryptionUtil RSA encryption utility
+     * @param objectMapper Spring-managed ObjectMapper (configured in JacksonConfig)
+     */
+    public PayloadEncryptionUtil(RSAEncryptionUtil rsaEncryptionUtil, ObjectMapper objectMapper) {
         this.rsaEncryptionUtil = rsaEncryptionUtil;
-        this.objectMapper = new ObjectMapper();
-        // Register JavaTimeModule to handle Java 8 date/time types (LocalDate, LocalDateTime, etc.)
-        this.objectMapper.registerModule(new JavaTimeModule());
+        this.objectMapper = objectMapper;
     }
 
     /**

@@ -21,6 +21,7 @@ import com.epic.cms.dto.CreateCardRequest;
 import com.epic.cms.dto.EncryptedPayloadRequest;
 import com.epic.cms.dto.PageRequest;
 import com.epic.cms.dto.PageResponse;
+import com.epic.cms.dto.PaginatedQueryRequest;
 import com.epic.cms.dto.SecureEncryptedPayloadRequest;
 import com.epic.cms.dto.UpdateCardRequest;
 import com.epic.cms.exception.InvalidOperationException;
@@ -237,5 +238,42 @@ public class CardController {
 				request.getEncryptionKey(), request);
 		return ResponseEntity.ok(
 				ApiResponse.success("Card updated successfully", updatedCard));
+	}
+
+	/**
+	 * Get all cards with pagination and optional filtering (POST version for encryption).
+	 * This endpoint accepts encrypted payloads and supports the same filtering as the GET version.
+	 * 
+	 * @param queryRequest Paginated query request with filters
+	 * @return Paginated list of cards
+	 */
+	@PostMapping("/query/paginated")
+	public ResponseEntity<ApiResponse<PageResponse<CardDTO>>> queryCardsPaginated(
+			@RequestBody PaginatedQueryRequest queryRequest) {
+		log.info("POST /api/cards/query/paginated - Query cards with pagination: page={}, size={}, status={}, search={}", 
+				queryRequest.getPage(), queryRequest.getSize(), queryRequest.getStatus(), queryRequest.getSearch());
+		
+		PageRequest pageRequest = PageRequest.of(queryRequest.getPage(), queryRequest.getSize());
+		PageResponse<CardDTO> cards = cardService.getAllCardsWithPagination(
+			pageRequest, 
+			queryRequest.getStatus(), 
+			queryRequest.getSearch()
+		);
+		
+		return ResponseEntity.ok(
+				ApiResponse.success("Cards retrieved successfully", cards));
+	}
+
+	/**
+	 * Get all cards (POST version for encryption).
+	 * 
+	 * @return List of all cards
+	 */
+	@PostMapping("/query/all")
+	public ResponseEntity<ApiResponse<List<CardDTO>>> queryAllCards() {
+		log.info("POST /api/cards/query/all - Fetch all cards");
+		List<CardDTO> cards = cardService.getAllCards();
+		return ResponseEntity.ok(
+				ApiResponse.success("Cards retrieved successfully", cards));
 	}
 }

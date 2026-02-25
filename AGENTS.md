@@ -6,10 +6,11 @@ This document provides guidelines for AI coding agents working on this Spring Bo
 
 - **Framework**: Spring Boot 3.5.10
 - **Language**: Java 17
-- **Build Tool**: Apache Maven 3.9.12
-- **Database**: MySQL
-- **Data Access**: Spring Data JDBC (Native SQL) - **NO JPA/Hibernate allowed**
+- **Build Tool**: Apache Maven 3.9.12 (use Maven Wrapper: `./mvnw`)
+- **Database**: MySQL (card_management_system)
+- **Data Access**: Spring Data JDBC with Native SQL - **NO JPA/Hibernate allowed**
 - **Package Structure**: `com.epic.cms`
+- **Server Port**: 8090
 
 ## ⚠️ CRITICAL REQUIREMENTS
 
@@ -19,6 +20,15 @@ This document provides guidelines for AI coding agents working on this Spring Bo
 - **REASON**: Assignment requirement - must demonstrate SQL knowledge
 - All queries MUST be written in native SQL using `@Query` annotation
 - Do NOT use JPQL, HQL, or query methods like `findByName()`
+
+### Database Schema
+- Main tables: `Card`, `User`, `CardRequest`, `CardStatus`, `RequestStatus`, `CardRequestType`
+- Always use correct table names:
+  - ✅ `CardStatus` (NOT `Status`)
+  - ✅ Column: `s.StatusCode` (NOT `s.Code`)
+  - ✅ Column: `u.Name` (NOT `u.FullName`)
+- Card numbers are ENCRYPTED in database (VARCHAR(255))
+- When writing queries with JOINs, verify table and column names in `src/main/resources/schema.sql`
 
 ## Build, Test, and Run Commands
 
@@ -238,155 +248,3 @@ com.epic.cms/
 - **Follow Spring Boot conventions** for auto-configuration
 - **No linting tools configured yet** - maintain consistent style manually
 
-## Logging System
-
-This application implements a comprehensive logging system for security, compliance, and debugging of financial transactions.
-
-### Log Files
-
-All logs are stored in `./logs/` directory with the following structure:
-
-| Log File | Purpose | Retention | Max Size |
-|----------|---------|-----------|----------|
-| `audit.log` | Financial transactions, card operations, status changes | 7 years | 50GB total |
-| `security.log` | Encryption/decryption events, security warnings | 1 year | 20GB total |
-| `error.log` | Exceptions and system errors only (ERROR level) | 1 year | 5GB total |
-| `access.log` | API requests and responses with response times | 90 days | 20GB total |
-| `application.log` | General application activity | 90 days | 10GB total |
-| `database.log` | SQL queries and database operations | 30 days | 10GB total |
-
-### Log Rotation
-
-- **Daily rotation**: All logs rotate daily at midnight
-- **Size-based rotation**: Files rotate when reaching 100MB (50MB for error logs, 200MB for access logs)
-- **Compression**: Archived logs are gzipped
-- **Archive location**: `./logs/archive/{log-type}/`
-
-### AuditLogger Utility
-
-Use the `AuditLogger` component for logging critical operations:
-
-```java
-@RequiredArgsConstructor
-public class CardService {
-    private final AuditLogger auditLogger;
-    
-    public void someOperation() {
-        // Log card creation
-        auditLogger.logCardCreated(maskedCardNumber, status, creditLimit, cashLimit, user);
-        
-        // Log card status change
-        auditLogger.logCardStatusChange(maskedCardNumber, oldStatus, newStatus, reason, user);
-        
-        // Log card limit update
-        auditLogger.logCardLimitUpdate(maskedCardNumber, limitType, oldValue, newValue, user);
-        
-        // Log request operations
-        auditLogger.logRequestCreated(requestId, maskedCardNumber, requestType, user);
-        auditLogger.logRequestApproved(requestId, maskedCardNumber, requestType, newCardStatus, user);
-        auditLogger.logRequestRejected(requestId, maskedCardNumber, requestType, reason, user);
-        
-        // Log transactions
-        auditLogger.logTransaction(maskedCardNumber, transactionType, amount, transactionId, user);
-        
-        // Log security events
-        auditLogger.logEncryption(operation, dataType, success);
-        auditLogger.logDecryption(operation, dataType, success);
-        auditLogger.logDecryptionFailure(dataType, reason);
-        
-        // Log business rule violations
-        auditLogger.logBusinessRuleViolation(rule, details, user);
-        auditLogger.logValidationError(operation, fieldName, errorMessage, user);
-        
-        // Log suspicious activity
-        auditLogger.logSuspiciousActivity(activityType, details, maskedCardNumber);
-    }
-}
-```
-
-### Correlation IDs
-
-All API requests are automatically assigned a unique correlation ID for tracking:
-
-- **Header**: `X-Correlation-ID` (sent in request and response)
-- **MDC**: Available in all log entries as `[correlationId]`
-- **Use case**: Track a single request across multiple log files
-
-### Logging Best Practices
-
-1. **Always mask sensitive data**:
-   - Card numbers: Show only last 4 digits (`****6666`)
-   - Never log full card numbers, CVV, or PINs
-   - Never log encryption keys (except in security log for debugging)
-
-2. **Use appropriate log levels**:
-   - `ERROR`: System errors, exceptions
-   - `WARN`: Business rule violations, suspicious activity
-   - `INFO`: Normal operations, API access, audit events
-   - `DEBUG`: Detailed debugging, SQL queries
-
-3. **Include context in log messages**:
-   ```java
-   log.info("Card created successfully for card ending in: {}", maskedCardNumber);
-   auditLogger.logCardCreated(maskedCardNumber, status, creditLimit, cashLimit, "SYSTEM");
-   ```
-
-4. **Always log financial operations**:
-   - Card creation/deletion
-   - Status changes
-   - Limit modifications
-   - Request approvals/rejections
-   - All transactions
-
-5. **Security event logging**:
-   - Encryption/decryption operations
-   - Failed authentication attempts
-   - Suspicious activity
-   - Unauthorized access attempts
-
-### Compliance
-
-The logging system is designed to meet:
-
-- **PCI-DSS**: Card data security standards (7-year audit log retention)
-- **SOX**: Financial record keeping requirements
-- **GDPR**: Data protection and privacy requirements (masked card numbers)
-
-### Viewing Logs
-
-```bash
-# View audit log (financial transactions)
-tail -f logs/audit.log
-
-# View access log (API requests)
-tail -f logs/access.log
-
-# View errors only
-tail -f logs/error.log
-
-# View security events
-tail -f logs/security.log
-
-# Search for specific card operations
-grep "****6666" logs/audit.log
-
-# View logs for specific correlation ID
-grep "286835a3-c115-4821-bf35-1db654c3286c" logs/*.log
-```
-
-### Log Format
-
-**Audit Log Pattern:**
-```
-{timestamp} [{correlationId}] [{user}] [{operation}] - {message}
-```
-
-**File Log Pattern:**
-```
-{timestamp} {level} [{thread}] [{correlationId}] {logger} - {message}
-```
-
-**Example:**
-```
-2026-02-19 21:46:42.178 [286835a3-c115-4821-bf35-1db654c3286c] [SYSTEM] [CARD_CREATE] - CARD_CREATED | CardNumber=****6666 | Status=IACT | CreditLimit=100000 | CashLimit=25000 | Timestamp=2026-02-19T21:46:42.178384
-```

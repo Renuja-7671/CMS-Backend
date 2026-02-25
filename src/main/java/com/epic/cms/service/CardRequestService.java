@@ -348,6 +348,33 @@ public class CardRequestService {
 	}
 	
 	/**
+	 * Get requests with full card details and pagination, filtered by status.
+	 * Supports PEND, APPR, RJCT, or ALL for all statuses.
+	 */
+	public PageResponse<CardRequestDetailDTO> getRequestsWithCardDetailsPaginated(
+			String status, PageRequest pageRequest) {
+		log.info("Fetching requests with card details and pagination - status: {}, page: {}, size: {}", 
+				status, pageRequest.getPage(), pageRequest.getSize());
+		
+		// Normalize status: treat null or "ALL" as all statuses
+		String filterStatus = (status == null || "ALL".equalsIgnoreCase(status)) ? "ALL" : status.toUpperCase();
+		
+		// Get total count with status filter
+		long totalElements = cardRequestRepository.countRequestsWithCardDetails(filterStatus);
+		
+		// Get paginated requests with status filter
+		List<CardRequestDetailDTO> result = new ArrayList<>();
+		cardRequestRepository.findRequestsWithCardDetailsAndPagination(
+				filterStatus,
+				pageRequest.getSize(), 
+				pageRequest.getOffset())
+			.forEach(request -> result.add(toDetailDTO(request)));
+		
+		// Return paginated response
+		return PageResponse.of(result, pageRequest.getPage(), pageRequest.getSize(), totalElements);
+	}
+	
+	/**
 	 * Approve a card request with proper status updates.
 	 * For ACTI requests: Card status IACT/DACT -> CACT
 	 * For CDCL requests: Card status CACT -> DACT

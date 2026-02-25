@@ -194,5 +194,6 @@ public interface CardRepository extends CrudRepository<Card, String> {
 	long countAllCards(
 			@Param("status") String status,
 			@Param("searchQuery") String searchQuery);
+	
 }
 
